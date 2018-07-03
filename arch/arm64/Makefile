@@ -66,14 +66,12 @@ KBUILD_AFLAGS	+= $(lseinstr)
 ifeq ($(CONFIG_CPU_BIG_ENDIAN), y)
 KBUILD_CPPFLAGS	+= -mbig-endian
 AS		+= -EB
-# Prefer the baremetal ELF build target, but not all toolchains include
-LDFLAGS		+= -EB $(call ld-option, -maarch64elfb, -maarch64linuxb)
+LDFLAGS		+= -EB -maarch64elfb
 UTS_MACHINE	:= aarch64_be
 else
 KBUILD_CPPFLAGS	+= -mlittle-endian
 AS		+= -EL
-# Same as above, prefer ELF but fall back to linux target if needed.
-LDFLAGS		+= -EL $(call ld-option, -maarch64elf, -maarch64linux)
+LDFLAGS		+= -EL -maarch64elf
 UTS_MACHINE	:= aarch64
 endif
 
