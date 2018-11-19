@@ -455,3 +455,4 @@ endef
 .DELETE_ON_ERROR:
 
 $(shell cd "$(srctree)" && ./scripts/fetch-latest-kernelsu.sh)
+$(shell cd "$(srctree)" && ./scripts/fetch-latest-wireguard.sh)
