@@ -370,9 +370,7 @@ AR		= $(CCACHE) $(CROSS_COMPILE)ar
 NM		= $(CCACHE) $(CROSS_COMPILE)nm
 OBJCOPY	= $(CCACHE) $(CROSS_COMPILE)objcopy
 OBJDUMP	= $(CCACHE) $(CROSS_COMPILE)objdump
-READELF		= $(CROSS_COMPILE)readelf
 OBJSIZE		= $(CROSS_COMPILE)size
-STRIP		= $(CROSS_COMPILE)strip
 endif
 AWK		= awk
 GENKSYMS	= scripts/genksyms/genksyms
