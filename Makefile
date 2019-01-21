@@ -354,6 +354,7 @@ NM		= $(CCACHE) $(CROSS_COMPILE)nm
 STRIP	= $(CCACHE) $(CROSS_COMPILE)strip
 OBJCOPY	= $(CCACHE) $(CROSS_COMPILE)objcopy
 OBJDUMP	= $(CCACHE) $(CROSS_COMPILE)objdump
+OBJSIZE		= $(CROSS_COMPILE)size
 AWK		= awk
 GENKSYMS	= scripts/genksyms/genksyms
 INSTALLKERNEL  := installkernel
