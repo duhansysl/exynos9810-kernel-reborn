@@ -67,10 +67,10 @@
 	.macro stp1 ptr, regB, regC, val
 	stp \ptr, \regB, [\regC], \val
 	.endm
+	
+	ENTRY(__memcpy)
 
-	.weak memcpy
-ENTRY(__memcpy)
-ENTRY(memcpy)
+WEAK(memcpy)
 #include "copy_template.S"
 	ret
 ENDPIPROC(memcpy)
