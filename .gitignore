@@ -146,7 +146,5 @@ arch/arm64/boot/dtb.img
 scripts/dtbtool_exynos/dtbtool
 DS/Out/*.img
 DS/Product/*.img
-arch/arm64/configs/tmp_defconfig
-drivers/gator_5.27/generated_gator_src_md5.h
-scripts/crypto/__pycache__/
-scripts/fmp/__pycache__/
+DS/Out/kernelzip/*
+DS/Product/*.zip
