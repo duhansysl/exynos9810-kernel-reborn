@@ -816,3 +816,5 @@ config MAX_DIRTY_THRESH_PAGES
 	  This value is the upper bound of VM dirty-thresh. (0 means no limit.)
 	  It is only effective when dirty_ratio is used.
 	  (Setting dirty_bytes disables this option.)
+	  
+source "mm/sec_mm/Kconfig"	  
