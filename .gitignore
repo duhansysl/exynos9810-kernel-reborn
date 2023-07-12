@@ -148,3 +148,6 @@ DS/Out/*.img
 DS/Product/*.img
 DS/Out/kernelzip/*
 DS/Product/*.zip
+
+# KSU
+drivers/kernelsu
