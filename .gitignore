@@ -128,3 +128,19 @@ arch/arm64/boot/dts/samsung/*.reverse.dts
 
 scripts/crypto/__pycache__/
 scripts/fmp/__pycache__/
+
+# DS
+drivers/gator_5.27/gator_src_md5.h
+firmware/five/ffffffff000000000000000000000072.tlbin
+scripts/rkp_cfp/common.pyc
+scripts/rkp_cfp/tmp/
+security/proca/proca_certificate-asn1.c
+security/proca/proca_certificate-asn1.h
+security/samsung/defex_lsm/cert/pubkey_eng.der
+security/samsung/defex_lsm/cert/pubkey_user.der
+security/samsung/defex_lsm/defex_packed_rules.inc
+security/samsung/defex_lsm/pack_rules
+arch/arm64/boot/dts/exynos/*.dtb
+arch/arm64/boot/dts/exynos/*.reverse.dts
+arch/arm64/boot/dtb.img
+scripts/dtbtool_exynos/dtbtool
