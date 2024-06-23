@@ -594,6 +594,9 @@ typedef struct dhd_prot {
 	 */
 	dhd_dma_buf_t	fw_trap_buf; /* firmware trap buffer */
 
+#ifdef FLOW_RING_PREALLOC
+	dhd_dma_buf_t	flow_ring_buf[MAX_FLOW_RINGS];
+#endif /* FLOW_RING_PREALLOC */
 	uint32  host_ipc_version; /* Host sypported IPC rev */
 	uint32  device_ipc_version; /* FW supported IPC rev */
 	uint32  active_ipc_version; /* Host advertised IPC rev */
@@ -3159,6 +3162,9 @@ dhd_prot_attach(dhd_pub_t *dhd)
 	osl_t *osh = dhd->osh;
 	dhd_prot_t *prot;
 	uint32 trap_buf_len;
+#ifdef FLOW_RING_PREALLOC
+	int i = 0;
+#endif /* FLOW_RING_PREALLOC */
 
 	/* Allocate prot structure */
 	if (!(prot = (dhd_prot_t *)DHD_OS_PREALLOC(dhd, DHD_PREALLOC_PROT,
@@ -3228,6 +3234,18 @@ dhd_prot_attach(dhd_pub_t *dhd)
 	 */
 	trap_buf_len = BCMPCIE_EXT_TRAP_DATA_MAXLEN;
 
+#ifdef FLOW_RING_PREALLOC
+	dhd->non_htput_total_flow_rings = MAX_FLOW_RINGS;
+
+	/* pre-allocation flow ring */
+	for (i = 0; i < dhd->non_htput_total_flow_rings; i++) {
+		if (dhd_dma_buf_alloc(dhd, &dhd->prot->flow_ring_buf[i],
+			(uint32)(H2DRING_TXPOST_MAX_ITEM * H2DRING_TXPOST_ITEMSIZE))) {
+			DHD_ERROR(("%s : dhd_prealloc_flowring_buffer failed\n", __FUNCTION__));
+			goto fail;
+		}
+	}
+#endif /* FLOW_RING_PREALLOC */
 	/* Initialize trap buffer */
 	if (dhd_dma_buf_alloc(dhd, &dhd->prot->fw_trap_buf, trap_buf_len)) {
 		DHD_ERROR(("%s: dhd_init_trap_buffer falied\n", __FUNCTION__));
@@ -3782,8 +3800,9 @@ dhd_prot_init(dhd_pub_t *dhd)
  */
 void dhd_prot_detach(dhd_pub_t *dhd)
 {
+	int i = 0;
 	dhd_prot_t *prot = dhd->prot;
-
+	BCM_REFERENCE(i);
 	/* Stop the protocol module */
 	if (prot) {
 
@@ -3815,6 +3834,11 @@ void dhd_prot_detach(dhd_pub_t *dhd)
 		/* Detach each DMA-able buffer and free the pool of msgbuf_ring_t */
 		dhd_prot_flowrings_pool_detach(dhd);
 
+#ifdef FLOW_RING_PREALLOC
+		for (i = 0; i < dhd->non_htput_total_flow_rings; i++) {
+			dhd_dma_buf_free(dhd, &prot->flow_ring_buf[i]);
+		}
+#endif /* FLOW_RING_PREALLOC */
 		/* detach info rings */
 		dhd_prot_detach_info_rings(dhd);
 
@@ -3868,8 +3892,10 @@ void dhd_prot_detach(dhd_pub_t *dhd)
 void
 dhd_prot_reset(dhd_pub_t *dhd)
 {
+	int i = 0;
 	struct dhd_prot *prot = dhd->prot;
 
+	BCM_REFERENCE(i);
 	DHD_TRACE(("%s\n", __FUNCTION__));
 
 	if (prot == NULL) {
@@ -3919,6 +3945,11 @@ dhd_prot_reset(dhd_pub_t *dhd)
 	dhd_dma_buf_reset(dhd, &prot->d2h_dma_indx_rd_buf);
 	dhd_dma_buf_reset(dhd, &prot->d2h_dma_indx_wr_buf);
 
+#ifdef FLOW_RING_PREALLOC
+	for (i = 0; i < dhd->non_htput_total_flow_rings; i++) {
+		dhd_dma_buf_reset(dhd, &prot->flow_ring_buf[i]);
+	}
+#endif /* FLOW_RING_PREALLOC */
 #ifdef DHD_DMA_INDICES_SEQNUM
 		if (prot->d2h_dma_indx_wr_copy_buf) {
 			dhd_local_buf_reset(prot->h2d_dma_indx_rd_copy_buf,
@@ -8520,7 +8551,9 @@ dhd_prot_ring_attach(dhd_pub_t *dhd, msgbuf_ring_t *ring, const char *name,
 	dhd_prot_t *prot = dhd->prot;
 	uint16 max_flowrings = dhd->bus->max_tx_flowrings;
 	dhd_dma_buf_t *dma_buf = NULL;
-
+#ifdef FLOW_RING_PREALLOC
+	int ret;
+#endif /* FLOW_RING_PREALLOC */
 	ASSERT(ring);
 	ASSERT(name);
 	ASSERT((max_items < 0xFFFF) && (item_len < 0xFFFF) && (ringid < 0xFFFF));
@@ -8582,6 +8615,25 @@ dhd_prot_ring_attach(dhd_pub_t *dhd, msgbuf_ring_t *ring, const char *name,
 			}
 		} else
 #endif /* EWP_EDL */
+#ifdef FLOW_RING_PREALLOC
+		if (DHD_IS_FLOWRING(ringid, max_flowrings)) {
+			int non_htput_ringid = ringid % dhd->non_htput_total_flow_rings;
+			/* copy pre-allocated mem with ringid : Non-HTPUT ring */
+			ret = memcpy_s(&ring->dma_buf, sizeof(ring->dma_buf),
+				&dhd->prot->flow_ring_buf[non_htput_ringid],
+				sizeof(dhd->prot->flow_ring_buf[non_htput_ringid]));
+			if (ret != BCME_OK) {
+				DHD_ERROR(("%s: memcpy_s non_htput_ring_buf failed\n",
+					__FUNCTION__));
+				ASSERT(0);
+				return BCME_ERROR;
+			}
+			dma_buf = &ring->dma_buf;
+			if (dma_buf->va == NULL) {
+				return BCME_NOMEM;
+			}
+		} else
+#endif /* FLOW_RING_PREALLOC */
 		{
 			/* Allocate a dhd_dma_buf */
 			dma_buf_alloced = dhd_dma_buf_alloc(dhd, &ring->dma_buf, dma_buf_len);
@@ -8685,6 +8737,13 @@ dhd_prot_ring_detach(dhd_pub_t *dhd, msgbuf_ring_t *ring)
 			memset(&ring->dma_buf, 0, sizeof(ring->dma_buf));
 		} else
 #endif /* EWP_EDL */
+#ifdef FLOW_RING_PREALLOC
+		if (DHD_IS_FLOWRING(ring->idx, max_flowrings) &&
+			(ring->dma_buf.va)) {
+			/* flow ring is freed in dhd_detach */
+			memset(&ring->dma_buf, 0, sizeof(ring->dma_buf));
+		} else
+#endif /* FLOW_RING_PREALLOC */
 		{
 			dhd_dma_buf_free(dhd, &ring->dma_buf);
 		}
@@ -8758,6 +8817,14 @@ dhd_prot_flowrings_pool_attach(dhd_pub_t *dhd)
 			__FUNCTION__, h2d_flowrings_total));
 		goto fail;
 	}
+
+#ifdef FLOW_RING_PREALLOC
+	if (h2d_flowrings_total > MAX_FLOW_RINGS) {
+		DHD_ERROR(("%s: requested size %d is bigger than pre-alloc flowrings %d,\n",
+			__FUNCTION__, h2d_flowrings_total, MAX_FLOW_RINGS));
+		goto attach_fail;
+	}
+#endif /* FLOW_RING_PREALLOC */
 
 	/* Setup & Attach a DMA-able buffer to each flowring in the flowring pool */
 	FOREACH_RING_IN_FLOWRINGS_POOL(prot, ring, flowid, h2d_flowrings_total) {
@@ -10895,12 +10962,66 @@ copy_hang_info_etd_base64(dhd_pub_t *dhd, char *dest, int *bytes_written, int *c
 }
 #endif /* DHD_EWPR_VER2 */
 
+int
+get_ext_trap_hc_module_id(dhd_pub_t *dhd)
+{
+	uint32 *ext_data = dhd->extended_trap_data;
+	hnd_ext_trap_hdr_t *hdr;
+	bcm_tlv_t *tlv;
+	bcm_xtlv_t *wl_hc;
+	bcm_dngl_socramind_t *socramind_ptr;
+	bcm_dngl_healthcheck_t *dngl_hc;
+	uint16 tag;
+	int ret = BCME_ERROR;
+
+	/* First word is original trap_data */
+	ext_data++;
+
+	/* Followed by the extended trap data header */
+	hdr = (hnd_ext_trap_hdr_t *)ext_data;
+
+	tlv = bcm_parse_tlvs(hdr->data, hdr->len, TAG_TRAP_HC_DATA);
+	if (tlv) {
+		socramind_ptr = (bcm_dngl_socramind_t *)((uint8 *)tlv->data);
+		tag =  ltoh32(socramind_ptr->tag);
+
+		switch (tag) {
+			case SOCRAM_IND_TAG_HEALTH_CHECK:
+				dngl_hc = (bcm_dngl_healthcheck_t *)((uint8 *)socramind_ptr->value);
+				switch (ltoh32(dngl_hc->top_module_tag)) {
+					case HCHK_SW_ENTITY_WL_PRIMARY:
+					case HCHK_SW_ENTITY_WL_SECONDARY:
+						wl_hc = (bcm_xtlv_t*)((uint8 *)dngl_hc->value);
+
+						if (ltoh32(dngl_hc->top_module_len)
+								< sizeof(bcm_xtlv_t)) {
+							DHD_ERROR(("WL SW HC Wrong length:%d\n",
+								ltoh32(dngl_hc->top_module_len)));
+							return BCME_ERROR;
+						}
+						DHD_ERROR(("WL SW HC type %d len %d\n",
+							ltoh16(wl_hc->id), ltoh16(wl_hc->len)));
+						ret = ltoh16(wl_hc->id);
+						break;
+					default:
+						break;
+				}
+				break;
+			default:
+				break;
+		}
+	}
+
+	return ret;
+}
+
 void
 copy_hang_info_trap(dhd_pub_t *dhd)
 {
 	trap_t tr;
 	int bytes_written;
 	int trap_subtype = 0;
+	int ext_trap_hc_module_id;
 
 	if (!dhd || !dhd->hang_info) {
 		DHD_ERROR(("%s dhd=%p hang_info=%p\n", __FUNCTION__,
@@ -10920,6 +11041,19 @@ copy_hang_info_trap(dhd_pub_t *dhd)
 
 	hang_info_trap_tbl[HANG_INFO_TRAP_T_REASON_IDX].offset = HANG_REASON_DONGLE_TRAP;
 	hang_info_trap_tbl[HANG_INFO_TRAP_T_SUBTYPE_IDX].offset = trap_subtype;
+
+	if (trap_subtype == TAG_TRAP_HC_DATA) {
+		DHD_ERROR(("trap_subtype is TAG_TRAP_HC_DATA\n"));
+		ext_trap_hc_module_id = get_ext_trap_hc_module_id(dhd);
+		if (ext_trap_hc_module_id != BCME_ERROR) {
+			if (ext_trap_hc_module_id == WL_HC_DD_RX_DMA_STALL) {
+				hang_info_trap_tbl[HANG_INFO_TRAP_T_REASON_IDX].offset =
+					HANG_REASON_DONGLE_TRAP_HC_DD_RX_DMA_STALL;
+				dhd->hang_reason = HANG_REASON_DONGLE_TRAP_HC_DD_RX_DMA_STALL;
+				DHD_ERROR(("HC_DD_RX_DMA_STALL raises HC trap\n"));
+			}
+		}
+	}
 
 	bytes_written = 0;
 	dhd->hang_info_cnt = 0;
