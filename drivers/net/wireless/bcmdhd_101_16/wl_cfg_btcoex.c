@@ -405,18 +405,23 @@ void* wl_cfg80211_btcoex_init(struct net_device *ndev)
 	return btco_inf;
 }
 
-void wl_cfg80211_btcoex_deinit()
+void wl_cfg80211_btcoex_kill_handler(void)
 {
 	if (!btcoex_info_loc)
 		return;
-
 	if (btcoex_info_loc->timer_on) {
 		btcoex_info_loc->timer_on = 0;
 		del_timer_sync(&btcoex_info_loc->timer);
 	}
-
 	cancel_work_sync(&btcoex_info_loc->work);
+	wl_cfg80211_btcoex_init_handler_status();
+}
 
+void wl_cfg80211_btcoex_deinit(void)
+{
+	if (!btcoex_info_loc)
+		return;
+	wl_cfg80211_btcoex_kill_handler();
 	kfree(btcoex_info_loc);
 }
 
