@@ -532,6 +532,13 @@ ifneq ($(filter install,$(MAKECMDGOALS)),)
         endif
 endif
 
+ifeq ($(CONFIG_SOC_EXYNOS9810), y)
+KBUILD_CFLAGS	+= -march=armv8-a -mcpu=exynos-m3 -mtune=exynos-m3
+KBUILD_LDFLAGS	+= -march=armv8-a -mcpu=exynos-m3 -mtune=exynos-m3
+KBUILD_CFLAGS	+= -mfloat-abi=hard
+KBUILD_LDFLAGS	+= -mfloat-abi=hard
+endif
+
 ifeq ($(cc-name),clang)
 ifneq ($(CROSS_COMPILE),)
 CLANG_TRIPLE	?= $(CROSS_COMPILE)
