@@ -83,7 +83,7 @@
 static DEFINE_IDR(loop_index_idr);
 static DEFINE_MUTEX(loop_index_mutex);
 
-static int max_part;
+static int max_part = 7;
 static int part_shift;
 
 static int transfer_xor(struct loop_device *lo, int cmd,
@@ -1603,6 +1603,7 @@ static int lo_compat_ioctl(struct block_device *bdev, fmode_t mode,
 	case LOOP_SET_FD:
 	case LOOP_CHANGE_FD:
 	case LOOP_SET_BLOCK_SIZE:
+	case LOOP_SET_DIRECT_IO:
 		err = lo_ioctl(bdev, mode, cmd, arg);
 		break;
 	default:
