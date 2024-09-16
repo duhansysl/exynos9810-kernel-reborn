@@ -228,6 +228,8 @@ source "drivers/tee/Kconfig"
 
 source "drivers/samsung/Kconfig"
 
+source "drivers/motor/Kconfig"
+
 source "drivers/vibrator/Kconfig"
 
 source "drivers/security/samsung/five_tee_driver/Kconfig"

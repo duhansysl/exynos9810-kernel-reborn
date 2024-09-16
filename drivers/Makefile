@@ -213,6 +213,9 @@ obj-$(CONFIG_SENSORS_SSP)	+= sensorhub/
 obj-$(CONFIG_SENSORS_HRMSENSOR)	+= optics/
 obj-$(CONFIG_SENSORS_MAX86915)	+= optics/
 
+# Motor
+obj-y	+= motor/
+
 # GNSS
 obj-$(CONFIG_GPS_BCM4753)	+= gps/	
 
