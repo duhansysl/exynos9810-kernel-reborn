@@ -129,7 +129,13 @@ static struct bbd_device bbd;
  * Embedded patch file provided as /dev/bbd_patch
  */
 static unsigned char bbd_patch[] = {
-#ifdef CONFIG_SENSORS_SSP_GTACTIVE3
+#ifdef CONFIG_SENSORS_SSP_STAR
+#include "q_os/bbd_patch_file_star.h"
+#elif CONFIG_SENSORS_SSP_CROWN
+#include "q_os/bbd_patch_file_crown.h"
+#elif CONFIG_SENSORS_SSP_HAECHI
+#include "q_os/bbd_patch_file_haechi.h"
+#elif CONFIG_SENSORS_SSP_GTACTIVE3
 #include "q_os/bbd_patch_file_tab_active_3.h"
 #else
 #include "q_os/bbd_patch_file_anote.h"

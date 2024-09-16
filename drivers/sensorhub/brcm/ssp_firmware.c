@@ -14,9 +14,11 @@
  */
 #include "ssp.h"
 
-#ifdef CONFIG_SENSORS_SSP_GTACTIVE3
+#if defined(CONFIG_SENSORS_SSP_STAR) || defined(CONFIG_SENSORS_SSP_CROWN) || defined(CONFIG_SENSORS_SSP_HAECHI)
+#define SSP_FIRMWARE_REVISION_BCM	22072000  /*Android Q*/
+#elif CONFIG_SENSORS_SSP_GTACTIVE3
 #define SSP_FIRMWARE_REVISION_BCM	23030400  /*Android Q*/
-#else	// anote
+#else
 #define SSP_FIRMWARE_REVISION_BCM	23060100  /*Android R*/
 #endif
 
