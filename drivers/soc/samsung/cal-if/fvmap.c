@@ -20,6 +20,11 @@ void __iomem *sram_fvmap_base;
 
 static int init_margin_table[MAX_MARGIN_ID];
 static int volt_offset_percent = 0;
+#if defined(CONFIG_SAMSUNG_VST_CAL)
+static int volt_vst_cal;
+int volt_vst_cal_bdata;
+EXPORT_SYMBOL(volt_vst_cal_bdata);
+#endif
 static int percent_margin_table[MAX_MARGIN_ID];
 
 static int __init get_mif_volt(char *str)
@@ -187,6 +192,19 @@ static int __init get_percent_margin_volt(char *str)
 }
 early_param("volt_offset_percent", get_percent_margin_volt);
 
+#if defined(CONFIG_SAMSUNG_VST_CAL)
+static int __init get_vst_margin_volt(char *str)
+{
+	unsigned int vst_volt;
+
+	get_option(&str, &vst_volt);
+	volt_vst_cal = vst_volt;
+
+	return 0;
+}
+early_param("vst_adjust", get_vst_margin_volt);
+#endif
+
 int fvmap_set_raw_voltage_table(unsigned int id, int uV)
 {
 	struct fvmap_header *fvmap_header;
@@ -267,6 +285,77 @@ static void check_percent_margin(struct rate_volt_header *head, unsigned int num
 		head->table[i].volt = org_volt + rounddown(percent_volt, STEP_UV);
 	}
 }
+
+#if defined(CONFIG_SAMSUNG_VST_CAL)
+static void check_vst_margin(void)
+{
+	int i;
+	int bit = 1;
+	int tmp = 0;
+	int crc = 0;
+	int magic = 0;
+	int margin = volt_vst_cal;
+
+	/* initialize vst cal bdata before using it */
+	volt_vst_cal_bdata = 0;
+
+	if (!volt_vst_cal) {
+		pr_info("[svst] no vst cal\n");
+		return;
+	}
+
+	/* check magic */
+	magic = margin & 0xffffffc0;
+	if ((magic >> 6) != NAD_CRC_MAGIC) {
+		pr_info("[svst] invalid magic = %d\n", magic);
+		return;
+	}
+
+	/* check crc */
+	crc = margin & 0x3;
+	margin = margin >> 2;
+
+	for (i = 0; i < 30; i++) {
+		if (bit & margin)
+			tmp++;
+		bit = bit << 1;
+	}
+	tmp = (tmp % 4);
+	if (tmp != 0)
+		tmp = 4 - tmp;
+
+	pr_info("[svst] crc = %d, tmp = %d\n", crc, tmp);
+
+	if (crc != tmp) {
+		pr_info("[svst] broken crc\n");
+		return;
+	}
+
+	margin = margin & 0xf;
+	volt_vst_cal_bdata = margin;
+	pr_info("[svst] result = %d, bdata = %d\n", margin, volt_vst_cal_bdata);
+
+	bit = 1;
+	for (i = 0; i < 4; i++) {
+		if (bit & margin) {
+			if (i == 0) {
+				pr_info("[svst] big[%d]\n", NAD_VST_CAL_VOLT);
+				init_margin_table[MARGIN_BIG] += NAD_VST_CAL_VOLT;
+			} else if (i == 1) {
+				pr_info("[svst] lit[%d]\n", NAD_VST_CAL_VOLT);
+				init_margin_table[MARGIN_LIT] += NAD_VST_CAL_VOLT;
+			} else if (i == 2) {
+				pr_info("[svst] g3d[%d]\n", NAD_VST_CAL_VOLT);
+				init_margin_table[MARGIN_G3D] += NAD_VST_CAL_VOLT;
+			} else {
+				pr_info("[svst] mif[%d]\n", NAD_VST_CAL_VOLT);
+				init_margin_table[MARGIN_MIF] += NAD_VST_CAL_VOLT;
+			}
+		}
+		bit = bit << 1;
+	}
+}
+#endif
 
 static int get_vclk_id_from_margin_id(int margin_id)
 {
@@ -366,6 +455,10 @@ static void fvmap_copy_from_sram(void __iomem *map_base, void __iomem *sram_base
 	header = sram_base;
 
 	size = cmucal_get_list_size(ACPM_VCLK_TYPE);
+	
+#if defined(CONFIG_SAMSUNG_VST_CAL)
+	check_vst_margin();
+#endif	
 
 	for (i = 0; i < size; i++) {
 		/* load fvmap info */

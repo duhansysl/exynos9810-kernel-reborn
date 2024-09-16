@@ -184,6 +184,11 @@ enum margin_id {
 	MAX_MARGIN_ID,
 };
 
+#if defined(CONFIG_SAMSUNG_VST_CAL)
+#define NAD_CRC_MAGIC           (0x95252A)
+#define NAD_VST_CAL_VOLT	25000
+#endif
+
 #define IS_FIXED_RATE(_id)	((_id & MASK_OF_TYPE) == FIXED_RATE_TYPE)
 #define IS_FIXED_FACTOR(_id)	((_id & MASK_OF_TYPE) == FIXED_FACTOR_TYPE)
 #define IS_PLL(_id)		((_id & MASK_OF_TYPE) == PLL_TYPE)
