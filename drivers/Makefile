@@ -209,6 +209,10 @@ obj-$(CONFIG_ICD)		+= security/samsung/icdrv/
 # Sensorhub driver
 obj-$(CONFIG_SENSORS_SSP)	+= sensorhub/
 
+# HRM sensor driver
+obj-$(CONFIG_SENSORS_HRMSENSOR)	+= optics/
+obj-$(CONFIG_SENSORS_MAX86915)	+= optics/
+
 # GNSS
 obj-$(CONFIG_GPS_BCM4753)	+= gps/	
 
