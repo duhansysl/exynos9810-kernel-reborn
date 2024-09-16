@@ -70,13 +70,14 @@ static int tsp_irq_num = 718;	// default value
 
 #ifdef CONFIG_TRUSTED_UI_TOUCH_ENABLE
 static void tui_delay(unsigned int ms)
+#if defined(CONFIG_TOUCHSCREEN_SEC_TS) || defined(CONFIG_TOUCHSCREEN_SEC_TS_Y771)
 {
 	if (ms < 20)
 		usleep_range(ms * 1000, ms * 1000);
 	else
 		msleep(ms);
 }
-
+#endif
 void trustedui_set_tsp_irq(int irq_num)
 {
 	tsp_irq_num = irq_num;

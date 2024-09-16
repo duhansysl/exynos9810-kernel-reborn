@@ -272,13 +272,13 @@ int sec_ts_raw_device_init(struct sec_ts_data *ts)
 {
 	int ret;
 
-#ifdef CONFIG_DRV_SAMSUNG
+#ifdef CONFIG_SEC_SYSFS
 	ts->dev = sec_device_create(ts, "sec_ts");
+#elif defined(CONFIG_DRV_SAMSUNG)
+	ts->dev = sec_device_create(9, ts, "sec_ts");
 #else
-	ts->dev = device_create(sec_class, NULL, 0, ts, "sec_ts");
+	ts->dev = device_create(sec_class, NULL, 9, ts, "sec_ts");
 #endif
-
-
 	ret = IS_ERR(ts->dev);
 	if (ret) {
 		input_err(true, &ts->client->dev, "%s: fail - device_create\n", __func__);
