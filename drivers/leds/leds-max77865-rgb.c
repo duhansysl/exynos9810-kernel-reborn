@@ -24,7 +24,7 @@
 #include <linux/fs.h>
 #include <linux/uaccess.h>
 #include <linux/regmap.h>
-#include <linux/sec_sysfs.h>
+#include <linux/sec_class.h>
 
 #define SEC_LED_SPECIFIC
 
