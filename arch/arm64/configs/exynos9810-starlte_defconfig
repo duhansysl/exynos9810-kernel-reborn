@@ -1413,6 +1413,7 @@ CONFIG_KLAT=y
 # Samsung Modem Interface Driver for Memory-type Interface
 #
 # CONFIG_SEC_MODEM_IF is not set
+CONFIG_DEV_RIL_BRIDGE=y
 # CONFIG_TZDEV is not set
 
 #
