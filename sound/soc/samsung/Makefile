@@ -52,6 +52,7 @@ snd-soc-gtactive3-rt5665-rt5510-objs := gtactive3-rt5665-rt5510.o jack_rt5665_sy
 snd-soc-gtactive3-rt5665-tas2562-objs := gtactive3-rt5665-tas2562.o
 snd-soc-r7-rt5665-tas2562-objs := r7-rt5665-tas2562.o jack_rt5665_sysfs_cb.o
 snd-soc-sec-audio-objs := sec_audio_sysfs.o sec_audio_debug.o
+snd-soc-star-madera-objs := star_madera.o jack_madera_sysfs_cb.o
 
 obj-$(CONFIG_SND_SOC_SAMSUNG_JIVE_WM8750) += snd-soc-jive-wm8750.o
 obj-$(CONFIG_SND_SOC_SAMSUNG_NEO1973_WM8753) += snd-soc-neo1973-wm8753.o
@@ -80,6 +81,7 @@ obj-$(CONFIG_SND_SOC_ARNDALE_RT5631_ALC5631) += snd-soc-arndale-rt5631.o
 obj-$(CONFIG_SND_SOC_SAMSUNG_EXYNOS8895_MOON) += exynos8895_madera.o
 obj-$(CONFIG_SND_SOC_SAMSUNG_EXYNOS8895_COD3033) += exynos8895_sound.o
 obj-$(CONFIG_SND_SOC_SAMSUNG_EXYNOS9810_MOON) += exynos9810_madera.o
+obj-$(CONFIG_SND_SOC_SAMSUNG_STAR_ASHETON) += snd-soc-star-madera.o
 obj-$(CONFIG_SND_SOC_SAMSUNG_GTACTIVE3_RT5665_RT5510) += snd-soc-gtactive3-rt5665-rt5510.o
 obj-$(CONFIG_SND_SOC_SAMSUNG_GTACTIVE3_RT5665_TAS2562) += snd-soc-gtactive3-rt5665-tas2562.o
 obj-$(CONFIG_SND_SOC_SAMSUNG_R7_RT5665_TAS2562) += snd-soc-r7-rt5665-tas2562.o
