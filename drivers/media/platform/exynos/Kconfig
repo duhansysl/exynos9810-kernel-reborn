@@ -8,13 +8,23 @@ config VIDEO_EXYNOS
         help
           This is a representative exynos multimedia device.
 
+config VIDEO_SAMSUNG_R7
+	bool "Galaxy R7 camera support"
+	depends on SOC_EXYNOS9810
+	help
+	  Include the fimc-is2 driver for Galaxy R7
+
 if VIDEO_EXYNOS
-#        source "drivers/media/platform/exynos/mdev/Kconfig"
         source "drivers/media/platform/exynos/scaler/Kconfig"
         source "drivers/media/platform/exynos/g2d1shot/Kconfig"
         source "drivers/media/platform/exynos/mfc/Kconfig"
         source "drivers/media/platform/exynos/smfc/Kconfig"
-        source "drivers/media/platform/exynos/fimc-is2/Kconfig"
+        if VIDEO_SAMSUNG_R7
+                source "drivers/media/platform/exynos/fimc-is2-r7/Kconfig"
+        endif
+        if !VIDEO_SAMSUNG_R7
+                source "drivers/media/platform/exynos/fimc-is2/Kconfig"
+        endif
         source "drivers/media/platform/exynos/camera-pp/Kconfig"
         source "drivers/media/platform/exynos/repeater/Kconfig"
         source "drivers/media/platform/exynos/tsmux/Kconfig"

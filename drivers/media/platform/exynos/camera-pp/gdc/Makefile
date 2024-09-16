@@ -13,4 +13,4 @@ obj-$(CONFIG_CAMERA_PP_GDC_V1_0_0_OBJ)	+= camerapp-hw-api-gdc-v100.o
 obj-$(CONFIG_CAMERA_PP_GDC_V2_0_0_OBJ)	+= camerapp-hw-api-gdc-v200.o
 
 ccflags-y += -Idrivers/media/platform/exynos/camera-pp/
-ccflags-y += -Idrivers/media/platform/exynos/fimc-is2/include
+ccflags-y += -Idrivers/media/platform/exynos/fimc-is2-r7/include
