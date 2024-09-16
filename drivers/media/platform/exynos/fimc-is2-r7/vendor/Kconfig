@@ -4,13 +4,13 @@ menu "Vendor Feature Setting"
 choice
 	prompt "Use vender features"
 	depends on EXYNOS_FIMC_IS
-	default VENDER_DEFAULT
+	default R7_VENDER_DEFAULT
 	help
 	  Use the vender specific features.
 
-config VENDER_DEFAULT
+config R7_VENDER_DEFAULT
         bool "Default"
-config VENDER_MCD
+config R7_VENDER_MCD
         bool "MCD"
 endchoice
 
