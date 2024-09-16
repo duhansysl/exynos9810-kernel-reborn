@@ -24,11 +24,75 @@
 
 union ion_ioctl_arg {
 	struct ion_fd_data fd;
+	struct ion_fd_partial_data fd_partial;
 	struct ion_allocation_data allocation;
 	struct ion_handle_data handle;
 	struct ion_custom_data custom;
 	struct ion_heap_query query;
 };
+
+/* Must hold the client lock */
+static void user_ion_handle_get(struct ion_handle *handle)
+{
+	if (handle->user_ref_count++ == 0)
+		kref_get(&handle->ref);
+}
+
+/* Must hold the client lock */
+static struct ion_handle *user_ion_handle_get_check_overflow(
+	struct ion_handle *handle)
+{
+	if (handle->user_ref_count + 1 == 0)
+		return ERR_PTR(-EOVERFLOW);
+	user_ion_handle_get(handle);
+	return handle;
+}
+
+/* passes a kref to the user ref count.
+ * We know we're holding a kref to the object before and
+ * after this call, so no need to reverify handle.
+ */
+static struct ion_handle *pass_to_user(struct ion_handle *handle)
+{
+	struct ion_client *client = handle->client;
+	struct ion_handle *ret;
+
+	mutex_lock(&client->lock);
+	ret = user_ion_handle_get_check_overflow(handle);
+	ion_handle_put_nolock(handle);
+	mutex_unlock(&client->lock);
+	return ret;
+}
+
+/* Must hold the client lock */
+static int user_ion_handle_put_nolock(struct ion_handle *handle)
+{
+	int ret;
+
+	if (--handle->user_ref_count == 0)
+		ret = ion_handle_put_nolock(handle);
+
+	return ret;
+}
+
+static void user_ion_free_nolock(struct ion_client *client,
+				 struct ion_handle *handle)
+{
+	bool valid_handle;
+
+	WARN_ON(client != handle->client);
+
+	valid_handle = ion_handle_validate(client, handle);
+	if (!valid_handle) {
+		WARN(1, "%s: invalid handle passed to free.\n", __func__);
+		return;
+	}
+	if (handle->user_ref_count == 0) {
+		WARN(1, "%s: User does not have access!\n", __func__);
+		return;
+	}
+	user_ion_handle_put_nolock(handle);
+}
 
 static int validate_ioctl_arg(unsigned int cmd, union ion_ioctl_arg *arg)
 {
@@ -52,6 +116,7 @@ static unsigned int ion_ioctl_dir(unsigned int cmd)
 {
 	switch (cmd) {
 	case ION_IOC_SYNC:
+	case ION_IOC_SYNC_PARTIAL:
 	case ION_IOC_FREE:
 	case ION_IOC_CUSTOM:
 		return _IOC_WRITE;
@@ -96,16 +161,23 @@ long ion_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	{
 		struct ion_handle *handle;
 
-		handle = ion_alloc(client, data.allocation.len,
+		handle = __ion_alloc(client, data.allocation.len,
 						data.allocation.align,
 						data.allocation.heap_id_mask,
-						data.allocation.flags);
-		if (IS_ERR(handle))
+						data.allocation.flags, true);
+		if (IS_ERR(handle)) {
+			pr_err("%s: len %zu align %zu heap_id_mask %u flags %x (ret %ld)\n",
+				__func__, data.allocation.len,
+				data.allocation.align,
+				data.allocation.heap_id_mask,
+				data.allocation.flags, PTR_ERR(handle));
 			return PTR_ERR(handle);
+		}
 
 		data.allocation.handle = handle->id;
 
 		cleanup_handle = handle;
+		pass_to_user(handle);
 		break;
 	}
 	case ION_IOC_FREE:
@@ -118,7 +190,7 @@ long ion_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			mutex_unlock(&client->lock);
 			return PTR_ERR(handle);
 		}
-		ion_free_nolock(client, handle);
+		user_ion_free_nolock(client, handle);
 		ion_handle_put_nolock(handle);
 		mutex_unlock(&client->lock);
 		break;
@@ -128,11 +200,15 @@ long ion_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	{
 		struct ion_handle *handle;
 
-		handle = ion_handle_get_by_id(client, data.handle.handle);
-		if (IS_ERR(handle))
+		mutex_lock(&client->lock);
+		handle = ion_handle_get_by_id_nolock(client, data.handle.handle);
+		if (IS_ERR(handle)) {
+			mutex_unlock(&client->lock);
 			return PTR_ERR(handle);
-		data.fd.fd = ion_share_dma_buf_fd(client, handle);
-		ion_handle_put(handle);
+		}
+		data.fd.fd = ion_share_dma_buf_fd_nolock(client, handle);
+		ion_handle_put_nolock(handle);
+		mutex_unlock(&client->lock);
 		if (data.fd.fd < 0)
 			ret = data.fd.fd;
 		break;
@@ -142,15 +218,27 @@ long ion_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		struct ion_handle *handle;
 
 		handle = ion_import_dma_buf_fd(client, data.fd.fd);
-		if (IS_ERR(handle))
+		if (IS_ERR(handle)) {
 			ret = PTR_ERR(handle);
-		else
+		} else {
 			data.handle.handle = handle->id;
+			handle = pass_to_user(handle);
+			if (IS_ERR(handle)) {
+				ret = PTR_ERR(handle);
+				data.handle.handle = 0;
+			}
+		}
 		break;
 	}
 	case ION_IOC_SYNC:
 	{
 		ret = ion_sync_for_device(client, data.fd.fd);
+		break;
+	}
+	case ION_IOC_SYNC_PARTIAL:
+	{
+		ret = ion_sync_partial_for_device(client, data.fd_partial.fd,
+			data.fd_partial.offset, data.fd_partial.len);
 		break;
 	}
 	case ION_IOC_CUSTOM:
@@ -170,10 +258,17 @@ long ion_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
 	if (dir & _IOC_READ) {
 		if (copy_to_user((void __user *)arg, &data, _IOC_SIZE(cmd))) {
-			if (cleanup_handle)
-				ion_free(client, cleanup_handle);
+			if (cleanup_handle) {
+				mutex_lock(&client->lock);
+				user_ion_free_nolock(client, cleanup_handle);
+				ion_handle_put_nolock(cleanup_handle);
+				mutex_unlock(&client->lock);
+			}
 			return -EFAULT;
 		}
 	}
+	if (cleanup_handle)
+		ion_handle_put(client, cleanup_handle);
+
 	return ret;
 }
