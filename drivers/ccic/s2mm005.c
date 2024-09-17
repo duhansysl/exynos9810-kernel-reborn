@@ -1164,9 +1164,9 @@ static int s2mm005_usbpd_probe(struct i2c_client *i2c,
 #if defined(CONFIG_DUAL_ROLE_USB_INTF)
 	struct dual_role_phy_desc *desc;
 	struct dual_role_phy_instance *dual_role;
-#endif
 #if defined(CONFIG_USB_HOST_NOTIFY)
 	struct otg_notify *o_notify = get_otg_notify();
+#endif
 #endif
 
 	pr_info("%s\n", __func__);
