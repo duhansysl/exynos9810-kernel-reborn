@@ -1225,6 +1225,7 @@ config TOUCHSCREEN_HIMAX_CHIPSET
 		If unsure, say N.
 
 source "drivers/input/touchscreen/sec_ts/Kconfig"
+source "drivers/input/touchscreen/sec_ts/y771/Kconfig"
 source "drivers/input/touchscreen/stm/Kconfig"
 source "drivers/input/touchscreen/melfas/mss100/Kconfig"
 source "drivers/input/touchscreen/himax/himax_83102E/Kconfig"

@@ -224,6 +224,16 @@ config HALL
 	  Active gpio state is low and active event value is 0.
 
 	  If unsure, say N.
+	  
+config HALL_EVENT_REVERSE
+	tristate "Adjusting the status value of HALL IC"
+	default y
+	depends on HALL
+	help
+	  Adjusting the status value of HALL IC.
+	  This was required from input FW.
+
+	  If unsure, say N.	  
 
 config CERTIFY_HALL
 	tristate "Enable CERTIFY HALL IC"
