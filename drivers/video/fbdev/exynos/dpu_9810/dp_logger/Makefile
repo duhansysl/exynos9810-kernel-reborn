@@ -7,4 +7,3 @@
 
 obj-$(CONFIG_SEC_DISPLAYPORT_LOGGER) += dp_logger.o
 obj-$(CONFIG_SEC_DISPLAYPORT_BIGDATA) += displayport_bigdata.o
-obj-$(CONFIG_SEC_DISPLAYPORT_SELFTEST) += dp_self_test.o

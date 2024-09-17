@@ -215,13 +215,6 @@ void decon_reg_set_te_qactive_pll_mode(u32 id, u32 en)
  * Current API does not configure various 8K case fully!
  * Therefore, modify/add configuration cases if necessary
  * "Resource Confliction" will happen if enabled simultaneously
- *
- * < dual dsi case >
- * SRAM0 : 2K + 2K ( left + right )
- * SRAM1 : 4K ( left only )
- * SRAM2 : 2k + 2k ( left + right )
- * SRAM3 : 4K ( right only )
- * -> even distribution : each [4K] S0/2, [6K] S0/1/3, [8K] All
  */
 void decon_reg_set_sram_share(u32 id, enum decon_fifo_mode fifo_mode)
 {
@@ -253,16 +246,9 @@ void decon_reg_set_sram_share(u32 id, enum decon_fifo_mode fifo_mode)
 										id);
 			}
 			break;
+
 	case DECON_FIFO_16K:
 		val = ALL_SRAM_SHARE_ENABLE;
-		break;
-	case DECON_FIFO_DUAL:
-		if (id == 0)
-			val = SRAM0_SHARE_ENABLE_F | SRAM2_SHARE_ENABLE_F;
-		else if (id == 1)
-			val = 0;
-		else if (id == 2)
-			val = SRAM1_SHARE_ENABLE_F | SRAM3_SHARE_ENABLE_F;
 		break;
 	case DECON_FIFO_00K:
 	default:
@@ -276,15 +262,9 @@ void decon_reg_set_scaled_image_size(u32 id,
 		enum decon_dsi_mode dsi_mode, struct decon_lcd *lcd_info)
 {
 	u32 val, mask;
-	u32 width;
-
-	if (dsi_mode == DSI_MODE_DUAL_DSI)
-		width = lcd_info->xres * 2;
-	else
-		width = lcd_info->xres;
 
 	val = SCALED_SIZE_HEIGHT_F(lcd_info->yres) |
-			SCALED_SIZE_WIDTH_F(width);
+			SCALED_SIZE_WIDTH_F(lcd_info->xres);
 	mask = SCALED_SIZE_HEIGHT_MASK | SCALED_SIZE_WIDTH_MASK;
 	decon_write_mask(id, SCALED_SIZE_CONTROL_0, val, mask);
 }
@@ -540,12 +520,14 @@ void decon_reg_config_data_path_size(u32 id,
 	if (dsim_if0 && dsim_if1)
 		dual_dsi = 1;
 
+/* TBD */
+#if 0
 	/* 1. SPLITTER */
 	if (dual_dsi && !dual_dsc)
-		decon_reg_set_splitter(id, width, height, width, overlap_w);
+		decon_reg_set_splitter(id, width*2, height, width, overlap_w);
 	else
 		decon_reg_set_splitter(id, width, height, width, 0);
-
+#endif
 	/* 2. OUTFIFO */
 	if (param->lcd_info->dsc_enabled) {
 		ds_en = dsc_get_dual_slice_mode(param->lcd_info);
@@ -565,9 +547,6 @@ void decon_reg_config_data_path_size(u32 id,
 		}
 	} else {
 		decon_reg_set_outfifo_size_ctl0(id, width, height);
-		/* for dual dsi */
-		if ((id == 0) && (dual_dsi))
-			decon_reg_set_outfifo_size_ctl1(id, width, 0);
 	}
 }
 
@@ -612,11 +591,6 @@ void decon_reg_set_interface(u32 id, struct decon_mode_info *psr)
 			/* DECON 0 - DSIMIF0 - DSIM0 */
 			val = DSIM_CONNECTION_DSIM0_F(0);
 			mask =  DSIM_CONNECTION_DSIM0_MASK;
-			/* dual DSI */
-			if (d_path & (0x1 << PATH_CON_ID_DSIM_IF1)) {
-				val |= DSIM_CONNECTION_DSIM1_F(1);
-				mask |= DSIM_CONNECTION_DSIM1_MASK;
-			}
 		} else if ((id == 0) && (d_path &
 					(0x1 << PATH_CON_ID_DSIM_IF1))) {
 			/* single DSI DECON0 - dsim if1 */
@@ -1720,7 +1694,7 @@ void decon_reg_configure_lcd(u32 id, struct decon_param *p)
 		if (lcd_info->dsc_cnt == 1)
 			d_path = (id == 0) ?
 				DPATH_DSCENC0_OUTFIFO0_DSIMIF0 :
-				(enum decon_data_path)DECON2_DSCENC2_OUTFIFO0_DPIF;
+				DECON2_DSCENC2_OUTFIFO0_DPIF;
 		else if (lcd_info->dsc_cnt == 2 && !id)
 			d_path = DPATH_DSCC_DSCENC01_OUTFIFO01_DSIMIF0;
 		else
@@ -1736,7 +1710,7 @@ void decon_reg_configure_lcd(u32 id, struct decon_param *p)
 		else
 			d_path = (id == 0) ?
 				DPATH_NOCOMP_OUTFIFO0_DSIMIF0 :
-				(enum decon_data_path)DECON2_NOCOMP_OUTFIFO0_DPIF;
+				DECON2_NOCOMP_OUTFIFO0_DPIF;
 
 		decon_reg_set_data_path(id, d_path, s_path);
 
@@ -1759,18 +1733,12 @@ static void decon_reg_init_probe(u32 id, u32 dsi_idx, struct decon_param *p)
 	enum decon_rgb_order rgb_order = DECON_RGB;
 	enum decon_dsi_mode dsi_mode = psr->dsi_mode;
 	u32 overlap_w = 0; /* default=0 : range=[0, 32] & (multiples of 2) */
-	u32 of_size;
 
 	dpu_reg_set_qactive_pll(id, true);
 
 	decon_reg_set_clkgate_mode(id, 0);
 
-	if (psr->dsi_mode == DSI_MODE_DUAL_DSI)
-		of_size = DECON_FIFO_DUAL;
-	else
-		of_size = DECON_FIFO_04K;
-
-	decon_reg_set_sram_share(id, of_size);
+	decon_reg_set_sram_share(id, DECON_FIFO_04K);
 
 	decon_reg_set_operation_mode(id, psr->psr_mode);
 
@@ -1793,7 +1761,7 @@ static void decon_reg_init_probe(u32 id, u32 dsi_idx, struct decon_param *p)
 		if (lcd_info->dsc_cnt == 1)
 			d_path = (id == 0) ?
 				DPATH_DSCENC0_OUTFIFO0_DSIMIF0 :
-				(enum decon_data_path)DECON2_DSCENC2_OUTFIFO0_DPIF;
+				DECON2_DSCENC2_OUTFIFO0_DPIF;
 		else if (lcd_info->dsc_cnt == 2 && !id)
 			d_path = DPATH_DSCC_DSCENC01_OUTFIFO01_DSIMIF0;
 		else
@@ -1809,7 +1777,7 @@ static void decon_reg_init_probe(u32 id, u32 dsi_idx, struct decon_param *p)
 		else
 			d_path = (id == 0) ?
 				DPATH_NOCOMP_OUTFIFO0_DSIMIF0 :
-				(enum decon_data_path)DECON2_NOCOMP_OUTFIFO0_DPIF;
+				DECON2_NOCOMP_OUTFIFO0_DPIF;
 
 		decon_reg_set_data_path(id, d_path, s_path);
 
@@ -1822,7 +1790,6 @@ int decon_reg_init(u32 id, u32 dsi_idx, struct decon_param *p)
 {
 	struct decon_lcd *lcd_info = p->lcd_info;
 	struct decon_mode_info *psr = &p->psr;
-	u32 of_size;
 
 	/*
 	 * DECON does not need to start, if DECON is already
@@ -1843,16 +1810,10 @@ int decon_reg_init(u32 id, u32 dsi_idx, struct decon_param *p)
 	if (psr->out_type == DECON_OUT_DP)
 		decon_reg_set_te_qactive_pll_mode(id, 1);
 
-	/* valid only for decon0 */
-	if (psr->dsi_mode == DSI_MODE_DUAL_DSI)
-		of_size = DECON_FIFO_DUAL;
-	else
-		of_size = DECON_FIFO_04K;
-
 	if (id == 0)
-		decon_reg_set_sram_share(id, of_size);
+		decon_reg_set_sram_share(id, DECON_FIFO_04K);
 	else if (id == 2)
-		decon_reg_set_sram_share(id, DECON_FIFO_DUAL);
+		decon_reg_set_sram_share(id, DECON_FIFO_12K);
 
 	decon_reg_set_operation_mode(id, psr->psr_mode);
 
@@ -1866,8 +1827,6 @@ int decon_reg_init(u32 id, u32 dsi_idx, struct decon_param *p)
 		decon_reg_configure_trigger(id, psr->trig_mode);
 		decon_reg_configure_lcd(id, p);
 	} else {
-		if (psr->psr_mode == DECON_VIDEO_MODE)
-			decon_reg_configure_trigger(id, psr->trig_mode);
 		decon_reg_configure_lcd(id, p);
 		if (psr->psr_mode == DECON_MIPI_COMMAND_MODE)
 			decon_reg_set_trigger(id, psr, DECON_TRIG_DISABLE);
@@ -2015,6 +1974,7 @@ int decon_reg_stop(u32 id, u32 dsi_idx, struct decon_mode_info *psr)
 	int ret = 0;
 
 	if (psr->out_type == DECON_OUT_DP) {
+		displayport_reg_set_interrupt_mask(VIDEO_FIFO_UNDER_FLOW_MASK, 0);
 		ret = decon_reg_stop_inst(id, dsi_idx, psr);
 		if (ret < 0)
 			decon_err("%s, failed to DP instant_stop\n", __func__);
@@ -2370,8 +2330,8 @@ const unsigned long decon_clocks_table[][CLK_ID_MAX] = {
 	/* VCLK, ECLK, ACLK, PCLK, DISP_PLL, resolution, MIC_ratio, DSC count */
 	{  71,   168, 400, 66,   71, 1080 * 1920,    MIC_COMP_BYPASS,  0},
 	{  63,   168, 400, 66,   63, 1440 * 2560, MIC_COMP_RATIO_1_2,  0},
-	{  41,   137, 400, 66,   62, 1440 * 2560, MIC_COMP_RATIO_1_3,  0},
-	{ 141,   137, 400, 66,  141, 1440 * 2560,    MIC_COMP_BYPASS,  0},
+	{41.7, 137.5, 400, 66, 62.5, 1440 * 2560, MIC_COMP_RATIO_1_3,  0},
+	{ 141, 137.5, 400, 66,  141, 1440 * 2560,    MIC_COMP_BYPASS,  0},
 	{  42,   337, 400, 66,   42, 1440 * 2560,    MIC_COMP_BYPASS,  1},
 	{  42,   168, 400, 66,   42, 1440 * 2560,    MIC_COMP_BYPASS,  2},
 };

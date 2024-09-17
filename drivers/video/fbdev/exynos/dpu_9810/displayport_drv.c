@@ -32,24 +32,14 @@
 #include <sound/samsung/dp_ado.h>
 #include <linux/smc.h>
 #include <linux/switch.h>
-#if defined(CONFIG_USE_DISPLAYPORT_CCIC_EVENT_QUEUE)
-#include <linux/timekeeping.h>
-#endif
 #if defined(CONFIG_ION_EXYNOS)
 #include <linux/exynos_iovmm.h>
-#endif
-
-#if defined(CONFIG_COMBO_REDRIVER_PS5169)
-#include <linux/combo_redriver/ps5169.h>
 #endif
 
 #include "../../../drivers/phy/phy-exynos-usbdrd.h"
 #include "displayport.h"
 #include "decon.h"
 #include "secdp_aux_control.h"
-#ifdef CONFIG_SEC_DISPLAYPORT_SELFTEST
-#include "./dp_logger/dp_self_test.h"
-#endif
 
 #define PIXELCLK_2160P30HZ 297000000 /* UHD 30hz */
 #define PIXELCLK_1080P60HZ 148500000 /* FHD 60Hz */
@@ -217,13 +207,6 @@ static int displayport_full_link_training(void)
 	struct displayport_device *displayport = get_displayport_drvdata();
 	struct decon_device *decon = get_decon_drvdata(2);
 
-#if defined(CONFIG_USB_TYPEC_MANAGER_NOTIFIER)
-	if (displayport->ccic_cable_state == CCIC_NOTIFY_DETACH) {
-		displayport_err("ccic cable is detached\n");
-		return -ENODEV;
-	}
-#endif
-
 	displayport_reg_dpcd_read_burst(DPCD_ADD_REVISION_NUMBER, DPCD_BUF_SIZE, val);
 	displayport_info("Full Link Training Start + : %02x %02x\n", val[1], val[2]);
 
@@ -287,7 +270,7 @@ Reduce_Link_Rate_Retry:
 		|| displayport_reg_get_lane_count() != lane_cnt) {
 
 		if (decon->state == DECON_STATE_ON) {
-			displayport_info("phy_reset not permitted on decon on state\n");
+			displayport_info("phy_reset not permitted on decon on state\n");			
 			return -EINVAL;
 		}
 
@@ -305,7 +288,7 @@ Reduce_Link_Rate_Retry:
 			displayport_write_mask(SST1_MAIN_CONTROL, 1, ENHANCED_MODE);
 
 		/* wait for 60us */
-		usleep_range(60, 61);
+		udelay(60);
 
 		displayport_reg_phy_reset(0);
 	} else
@@ -434,7 +417,7 @@ Voltage_Swing_Retry:
 			if (training_retry_no2++ >= 16) {
 				displayport_err("too many voltage swing retries\n");
 				goto Check_Link_rate;
-			}
+			}				
 		}
 
 		for (i = 0; i < 4; i++) {
@@ -1020,16 +1003,9 @@ static int displayport_link_training(void)
 	struct displayport_device *displayport = get_displayport_drvdata();
 	int ret = 0;
 
-#if defined(CONFIG_USB_TYPEC_MANAGER_NOTIFIER)
-	if (displayport->ccic_cable_state == CCIC_NOTIFY_DETACH) {
-		displayport_err("ccic cable is detached\n");
-		return -ENODEV;
-	}
-#endif
-
 	if (!displayport->hpd_current_state) {
 		displayport_info("hpd is low in link training\n");
-		return -ENODEV;
+		return 0;
 	}
 
 	mutex_lock(&displayport->training_lock);
@@ -1112,13 +1088,6 @@ void displayport_hpd_changed(int state)
 		displayport->state = DISPLAYPORT_STATE_INIT;
 		usleep_range(10000, 11000);
 
-#if defined(CONFIG_USB_TYPEC_MANAGER_NOTIFIER)
-		if (displayport->ccic_cable_state == CCIC_NOTIFY_DETACH) {
-			displayport_err("ccic cable is detached\n");
-			goto HPD_FAIL;
-		}
-#endif
-
 #ifdef CONFIG_SEC_DISPLAYPORT_BIGDATA
 		if (displayport->dex_state == DEX_ON)
 			secdp_bigdata_save_item(BD_DP_MODE, "DEX");
@@ -1138,9 +1107,7 @@ void displayport_hpd_changed(int state)
 
 		displayport_info("link training in hpd_changed\n");
 		ret = displayport_link_training();
-		if (ret == -ENODEV) {
-			goto HPD_FAIL;
-		} else if (ret < 0) {
+		if (ret < 0) {
 			displayport_dbg("link training fail\n");
 			displayport_set_switch_poor_connect();
 			goto HPD_FAIL;
@@ -1178,7 +1145,6 @@ void displayport_hpd_changed(int state)
 		cancel_delayed_work_sync(&displayport->hdcp13_integrity_check_work);
 		displayport->hpd_state = HPD_UNPLUG;
 		displayport->cur_video = V640X480P60;
-		displayport_reg_set_interrupt_mask(VIDEO_FIFO_UNDER_FLOW_MASK, 0); /*prevent intr storm*/
 /* not set to DEX_OFF state in this function
  * if ccic call this, then dex_state is already off.
  *		if (displayport->dex_state != DEX_RECONNECTING)
@@ -1901,12 +1867,7 @@ static int displayport_make_audio_infoframe_data(struct infoframe *audio_infofra
 	audio_infoframe->data[0] = ((u8)audio_config_data->audio_channel_cnt - 1);
 
 	/* Data Byte 4, how various speaker locations are allocated */
-	if (audio_config_data->audio_channel_cnt == 8)
-		audio_infoframe->data[3] = 0x13;
-	else if (audio_config_data->audio_channel_cnt == 6)
-		audio_infoframe->data[3] = 0x0b;
-	else
-		audio_infoframe->data[3] = 0;
+	audio_infoframe->data[3] = 0;
 
 	displayport_info("audio_infoframe: type and ch_cnt %02x, SF and bit size %02x, ch_allocation %02x\n",
 			audio_infoframe->data[0], audio_infoframe->data[1], audio_infoframe->data[3]);
@@ -1982,7 +1943,7 @@ static int displayport_make_hdr_infoframe_data
 		displayport_dbg("hdr_infoframe->data[%d] = 0x%02x", i,
 			hdr_infoframe->data[i]);
 	}
-
+	
 	print_hex_dump(KERN_INFO, "HDR: ", DUMP_PREFIX_NONE, 32, 1,
 			hdr_infoframe->data, HDR_INFOFRAME_LENGTH, false);
 
@@ -2037,7 +1998,7 @@ static int displayport_set_audio_infoframe(struct displayport_audio_config_data 
 
 static int displayport_set_hdr_infoframe(struct exynos_hdr_static_info *hdr_info)
 {
-	struct infoframe hdr_infoframe = {0, 0, 0, {0, }};
+	struct infoframe hdr_infoframe;
 
 	if (hdr_info->mid >= 0) {
 		displayport_dbg("displayport_set_hdr_infoframe 1\n");
@@ -2116,9 +2077,6 @@ int displayport_audio_config(struct displayport_audio_config_data *audio_config_
 
 	displayport_info("audio config(%d ==> %d)\n", displayport->audio_state,
 				audio_config_data->audio_enable);
-
-	if (displayport->state == DISPLAYPORT_STATE_OFF)
-		return 0;
 
 	if (audio_config_data->audio_enable == displayport->audio_state)
 		return 0;
@@ -2425,6 +2383,7 @@ static int displayport_enable(struct displayport_device *displayport)
 #else
 	displayport_runtime_resume(displayport->dev);
 #endif
+	enable_irq(displayport->res.irq);
 
 	displayport_info("%s video: %s\n", __func__, supported_videos[displayport->cur_video].name);
 
@@ -2448,21 +2407,10 @@ static int displayport_enable(struct displayport_device *displayport)
 	displayport_reg_video_mute(0);
 #endif
 	displayport_reg_start();
-	enable_irq(displayport->res.irq);
+
 	displayport->state = DISPLAYPORT_STATE_ON;
 	wake_up_interruptible(&displayport->dp_wait);
 	hdcp_start(displayport);
-
-#ifdef CONFIG_SEC_DISPLAYPORT_SELFTEST
-	if (self_test_on_process()) {
-		int idx = displayport->cur_video;
-
-		self_test_resolution_update(supported_videos[idx].dv_timings.bt.width,
-				supported_videos[idx].dv_timings.bt.height,
-				supported_videos[idx].fps);
-	}
-#endif
-
 	mutex_unlock(&displayport->cmd_lock);
 
 	return ret;
@@ -2480,10 +2428,9 @@ static int displayport_disable(struct displayport_device *displayport)
 
 	hdcp13_info.auth_state = HDCP13_STATE_NOT_AUTHENTICATED;
 
-	displayport_reg_set_interrupt_mask(ALL_INT_MASK, 0);
-	disable_irq(displayport->res.irq);
-	displayport_reg_deinit();
 	displayport_reg_set_video_bist_mode(0);
+	displayport_reg_deinit();
+	disable_irq(displayport->res.irq);
 
 	if (displayport_reg_get_link_bw() == LINK_RATE_5_4Gbps) {
 		if (pm_qos_request_active(&displayport->fsys0_qos)) {
@@ -2541,9 +2488,7 @@ static int displayport_timing2conf(struct v4l2_dv_timings *timings)
 {
 	int i;
 
-	/* to select last index when there are same timings, use descending order
-	 * for FEATURE_USE_PREFERRED_TIMING_1ST */
-	for (i = supported_videos_pre_cnt - 1; i >= 0; i--) {
+	for (i = 0; i < supported_videos_pre_cnt; i++) {
 		if (displayport_match_timings(&supported_videos[i].dv_timings,
 					timings, 0))
 			return i;
@@ -2675,11 +2620,6 @@ static int displayport_enum_dv_timings(struct v4l2_subdev *sd,
 					supported_videos[timings->index].name);
 			return -EINVAL;
 		}
-#ifdef CONFIG_SEC_DISPLAYPORT_SELFTEST
-		if (self_test_on_process()) {
-			displayport->dex_adapter_type = self_test_get_dp_adapter_type();
-		}
-#endif
 		if (supported_videos[timings->index].dex_support > displayport->dex_adapter_type) {
 			displayport_info("%s not supported, adapter:%d, resolution:%d in dex mode\n",
 					supported_videos[timings->index].name,
@@ -2869,11 +2809,6 @@ static int displayport_parse_dt(struct displayport_device *displayport, struct d
 	if (!gpio_is_valid(displayport->gpio_usb_dir))
 		displayport_err("failed to get gpio dp_usb_con_sel\n");
 
-	if (of_property_read_u32(dev->of_node, "dp,dex_resolution", &displayport->dex_res)) {
-		displayport->dex_res = 0;
-		displayport_info("dex_res not exist\n");
-	}
-
 	displayport_info("%s done\n", __func__);
 
 	return 0;
@@ -2955,7 +2890,7 @@ static void displayport_aux_sel(struct displayport_device *displayport)
 {
 	if (gpio_is_valid(displayport->gpio_usb_dir) &&
 			gpio_is_valid(displayport->gpio_sw_sel)) {
-		displayport->dp_sw_sel = !gpio_get_value(displayport->gpio_usb_dir);
+		displayport->dp_sw_sel = gpio_get_value(displayport->gpio_usb_dir);
 		gpio_direction_output(displayport->gpio_sw_sel, !(displayport->dp_sw_sel));
 		displayport_info("Get direction from ccic %d\n", displayport->dp_sw_sel);
 #ifdef CONFIG_SEC_DISPLAYPORT_BIGDATA
@@ -2974,11 +2909,6 @@ static void displayport_aux_sel(struct displayport_device *displayport)
 static void displayport_check_adapter_type(struct displayport_device *displayport)
 {
 	displayport->dex_adapter_type = DEX_FHD_SUPPORT;
-
-	if (displayport->dex_res <= DEX_UHD_SUPPORT && displayport->dex_res > DEX_NOT_SUPPORT) {
-		displayport->dex_adapter_type = displayport->dex_res;
-		return;
-	}
 
 	if (displayport->ven_id != 0x04e8)
 		return;
@@ -3001,19 +2931,26 @@ static void displayport_check_adapter_type(struct displayport_device *displaypor
 	};
 }
 
-static int displayport_usb_typec_notification_proceed(struct displayport_device *displayport,
-				CC_NOTI_TYPEDEF *usb_typec_info)
+static int usb_typec_displayport_notification(struct notifier_block *nb,
+		unsigned long action, void *data)
 {
-	displayport_dbg("%s: dump(0x%01x, 0x%01x, 0x%02x, 0x%04x, 0x%04x, 0x%04x)\n",
-			__func__, usb_typec_info->src, usb_typec_info->dest, usb_typec_info->id,
-			usb_typec_info->sub1, usb_typec_info->sub2, usb_typec_info->sub3);
+	struct displayport_device *displayport = container_of(nb,
+			struct displayport_device, dp_typec_nb);
+	CC_NOTI_TYPEDEF usb_typec_info = *(CC_NOTI_TYPEDEF *)data;
 
-	switch (usb_typec_info->id) {
+	if (usb_typec_info.dest != CCIC_NOTIFY_DEV_DP)
+		return 0;
+
+	displayport_dbg("%s: action (%ld) dump(0x%01x, 0x%01x, 0x%02x, 0x%04x, 0x%04x, 0x%04x)\n",
+			__func__, action, usb_typec_info.src, usb_typec_info.dest, usb_typec_info.id,
+			usb_typec_info.sub1, usb_typec_info.sub2, usb_typec_info.sub3);
+
+	switch (usb_typec_info.id) {
 	case CCIC_NOTIFY_ID_DP_CONNECT:
-		switch (usb_typec_info->sub1) {
+		switch (usb_typec_info.sub1) {
 		case CCIC_NOTIFY_DETACH:
 			dp_logger_set_max_count(100);
-			displayport_info("CCIC_NOTIFY_ID_DP_CONNECT, %x\n", usb_typec_info->sub1);
+			displayport_info("CCIC_NOTIFY_ID_DP_CONNECT, %x\n", usb_typec_info.sub1);
 			displayport->ccic_notify_dp_conf = CCIC_NOTIFY_DP_PIN_UNKNOWN;
 			displayport->ccic_link_conf = false;
 			displayport->ccic_hpd = false;
@@ -3021,9 +2958,6 @@ static int displayport_usb_typec_notification_proceed(struct displayport_device 
 			displayport->dex_ver[0] = 0;
 			displayport->dex_ver[1] = 0;
 			displayport_hpd_changed(0);
-#if defined(CONFIG_COMBO_REDRIVER_PS5169)
-			ps5169_config(CLEAR_STATE, BY_DP);
-#endif
 			displayport_aux_onoff(displayport, 0);
 #ifdef CONFIG_SEC_DISPLAYPORT_BIGDATA
 			secdp_bigdata_disconnection();
@@ -3031,9 +2965,9 @@ static int displayport_usb_typec_notification_proceed(struct displayport_device 
 			break;
 		case CCIC_NOTIFY_ATTACH:
 			dp_logger_set_max_count(100);
-			displayport_info("CCIC_NOTIFY_ID_DP_CONNECT, %x\n", usb_typec_info->sub1);
-			displayport->ven_id = usb_typec_info->sub2;
-			displayport->prod_id = usb_typec_info->sub3;
+			displayport_info("CCIC_NOTIFY_ID_DP_CONNECT, %x\n", usb_typec_info.sub1);
+			displayport->ven_id = usb_typec_info.sub2;
+			displayport->prod_id = usb_typec_info.sub3;
 			displayport_check_adapter_type(displayport);
 			displayport_info("VID:0x%llX, PID:0x%llX\n", displayport->ven_id, displayport->prod_id);
 #ifdef CONFIG_SEC_DISPLAYPORT_BIGDATA
@@ -3041,6 +2975,8 @@ static int displayport_usb_typec_notification_proceed(struct displayport_device 
 			secdp_bigdata_save_item(BD_ADT_VID, displayport->ven_id);
 			secdp_bigdata_save_item(BD_ADT_PID, displayport->prod_id);
 #endif
+			displayport_aux_sel(displayport);
+			displayport_aux_onoff(displayport, 1);
 			break;
 		default:
 			break;
@@ -3050,61 +2986,36 @@ static int displayport_usb_typec_notification_proceed(struct displayport_device 
 
 	case CCIC_NOTIFY_ID_DP_LINK_CONF:
 		displayport_info("CCIC_NOTIFY_ID_DP_LINK_CONF %x\n",
-				usb_typec_info->sub1);
+				usb_typec_info.sub1);
 		displayport_aux_sel(displayport);
-		displayport_aux_onoff(displayport, 1);
 #ifdef CONFIG_SEC_DISPLAYPORT_BIGDATA
-		secdp_bigdata_save_item(BD_LINK_CONFIGURE, usb_typec_info->sub1 + 'A' - 1);
+		secdp_bigdata_save_item(BD_LINK_CONFIGURE, usb_typec_info.sub1 + 'A' - 1);
 #endif
-		switch (usb_typec_info->sub1) {
+		switch (usb_typec_info.sub1) {
 		case CCIC_NOTIFY_DP_PIN_UNKNOWN:
 			displayport->ccic_notify_dp_conf = CCIC_NOTIFY_DP_PIN_UNKNOWN;
-#if defined(CONFIG_COMBO_REDRIVER_PS5169)
-			ps5169_config(DP_ONLY_MODE, BY_DP);
-#endif
 			break;
 		case CCIC_NOTIFY_DP_PIN_A:
 			displayport->ccic_notify_dp_conf = CCIC_NOTIFY_DP_PIN_A;
-#if defined(CONFIG_COMBO_REDRIVER_PS5169)
-			ps5169_config(DP_ONLY_MODE, BY_DP);
-#endif
 			break;
 		case CCIC_NOTIFY_DP_PIN_B:
 			displayport->dp_sw_sel = !displayport->dp_sw_sel;
 			displayport->ccic_notify_dp_conf = CCIC_NOTIFY_DP_PIN_B;
-#if defined(CONFIG_COMBO_REDRIVER_PS5169)
-			ps5169_config(DP2_LANE_USB_MODE, BY_DP);
-#endif
 			break;
 		case CCIC_NOTIFY_DP_PIN_C:
 			displayport->ccic_notify_dp_conf = CCIC_NOTIFY_DP_PIN_C;
-#if defined(CONFIG_COMBO_REDRIVER_PS5169)
-			ps5169_config(DP_ONLY_MODE, BY_DP);
-#endif
 			break;
 		case CCIC_NOTIFY_DP_PIN_D:
 			displayport->ccic_notify_dp_conf = CCIC_NOTIFY_DP_PIN_D;
-#if defined(CONFIG_COMBO_REDRIVER_PS5169)
-			ps5169_config(DP2_LANE_USB_MODE, BY_DP);
-#endif
 			break;
 		case CCIC_NOTIFY_DP_PIN_E:
 			displayport->ccic_notify_dp_conf = CCIC_NOTIFY_DP_PIN_E;
-#if defined(CONFIG_COMBO_REDRIVER_PS5169)
-			ps5169_config(DP_ONLY_MODE, BY_DP);
-#endif
 			break;
 		case CCIC_NOTIFY_DP_PIN_F:
 			displayport->ccic_notify_dp_conf = CCIC_NOTIFY_DP_PIN_F;
-#if defined(CONFIG_COMBO_REDRIVER_PS5169)
-			ps5169_config(DP2_LANE_USB_MODE, BY_DP);
-#endif
 			break;
 		default:
 			displayport->ccic_notify_dp_conf = CCIC_NOTIFY_DP_PIN_UNKNOWN;
-#if defined(CONFIG_COMBO_REDRIVER_PS5169)
-			ps5169_config(DP_ONLY_MODE, BY_DP);
-#endif
 			break;
 		}
 		if (displayport->ccic_notify_dp_conf) {
@@ -3116,8 +3027,8 @@ static int displayport_usb_typec_notification_proceed(struct displayport_device 
 
 	case CCIC_NOTIFY_ID_DP_HPD:
 		displayport_info("CCIC_NOTIFY_ID_DP_HPD, %x, %x\n",
-				usb_typec_info->sub1, usb_typec_info->sub2);
-		switch (usb_typec_info->sub1) {
+				usb_typec_info.sub1, usb_typec_info.sub2);
+		switch (usb_typec_info.sub1) {
 		case CCIC_NOTIFY_IRQ:
 			break;
 		case CCIC_NOTIFY_LOW:
@@ -3127,7 +3038,7 @@ static int displayport_usb_typec_notification_proceed(struct displayport_device 
 			break;
 		case CCIC_NOTIFY_HIGH:
 			if (displayport->hpd_current_state &&
-					usb_typec_info->sub2 == CCIC_NOTIFY_IRQ) {
+					usb_typec_info.sub2 == CCIC_NOTIFY_IRQ) {
 				queue_delayed_work(displayport->dp_wq, &displayport->hpd_irq_work, 0);
 				return 0;
 			} else {
@@ -3148,125 +3059,6 @@ static int displayport_usb_typec_notification_proceed(struct displayport_device 
 		break;
 	}
 
-	return 0;
-}
-
-#if defined(CONFIG_USE_DISPLAYPORT_CCIC_EVENT_QUEUE)
-#define DP_HAL_INIT_TIME	30/*sec*/
-static void displayport_hal_ready_wait(struct displayport_device *displayport)
-{
-	time64_t wait_time = ktime_divns(ktime_get_boottime(), NSEC_PER_SEC);
-
-	displayport_info("current time is %lld\n", wait_time);
-
-	if (DP_HAL_INIT_TIME > wait_time) {
-		wait_time = DP_HAL_INIT_TIME - wait_time;
-		wait_event_interruptible_timeout(displayport->dp_ready_wait,
-		    (displayport->dp_ready_wait_state == DP_READY_YES), msecs_to_jiffies(wait_time * 1000));
-		displayport_info("wait for %lld\n", wait_time);
-	}
-	displayport->dp_ready_wait_state = DP_READY_YES;
-}
-
-static void displayport_ccic_event_proceed_work(struct work_struct *work)
-{
-	struct displayport_device *displayport = get_displayport_drvdata();
-	struct ccic_event *data;
-
-	if (displayport->dp_ready_wait_state != DP_READY_YES)
-		displayport_hal_ready_wait(displayport);
-
-	while (!list_empty(&displayport->list_cc)) {
-		CC_NOTI_TYPEDEF ccic_evt;
-
-		mutex_lock(&displayport->ccic_lock);
-		data = list_first_entry(&displayport->list_cc, typeof(*data), list);
-		memcpy(&ccic_evt, &data->event, sizeof(ccic_evt));
-		list_del(&data->list);
-		kfree(data);
-		mutex_unlock(&displayport->ccic_lock);
-		displayport_usb_typec_notification_proceed(displayport, &ccic_evt);
-	}
-}
-
-static void displayport_ccic_queue_flush(struct displayport_device *displayport)
-{
-	struct ccic_event *data, *next;
-
-	if (list_empty(&displayport->list_cc))
-		return;
-
-	displayport_info("delete hpd event from ccic queue\n");
-
-	mutex_lock(&displayport->ccic_lock);
-	list_for_each_entry_safe(data, next, &displayport->list_cc, list) {
-		if (data->event.id == CCIC_NOTIFY_ID_DP_HPD) {
-			list_del(&data->list);
-			kfree(data);
-		}
-	}
-	mutex_unlock(&displayport->ccic_lock);
-}
-#endif
-
-static int usb_typec_displayport_notification(struct notifier_block *nb,
-		unsigned long action, void *data)
-{
-	struct displayport_device *displayport = get_displayport_drvdata();
-	CC_NOTI_TYPEDEF usb_typec_info = *(CC_NOTI_TYPEDEF *)data;
-
-	if (usb_typec_info.dest != CCIC_NOTIFY_DEV_DP)
-		return 0;
-
-#if defined(CONFIG_USE_DISPLAYPORT_CCIC_EVENT_QUEUE)
-	{
-		struct ccic_event *cc_data;
-
-		displayport_dbg("CCIC action(%ld) dump(0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x)\n",
-			action, usb_typec_info.src, usb_typec_info.dest, usb_typec_info.id,
-			usb_typec_info.sub1, usb_typec_info.sub2, usb_typec_info.sub3);
-
-		if (usb_typec_info.id == CCIC_NOTIFY_ID_DP_CONNECT)
-			displayport->ccic_cable_state = usb_typec_info.sub1;
-
-		cc_data = kzalloc(sizeof(struct ccic_event), GFP_KERNEL);
-		if (!cc_data) {
-			displayport_err("kzalloc error for ccic event\n");
-			return 0;
-		}
-
-		switch (usb_typec_info.id) {
-		case CCIC_NOTIFY_ID_DP_CONNECT:
-			displayport_info("queued CONNECT: %x\n", usb_typec_info.sub1);
-			break;
-		case CCIC_NOTIFY_ID_DP_LINK_CONF:
-			displayport_info("queued LINK_CONF: %x\n", usb_typec_info.sub1);
-			break;
-		case CCIC_NOTIFY_ID_DP_HPD:
-			displayport_info("queued HPD: %x, %x\n", usb_typec_info.sub1, usb_typec_info.sub2);
-			break;
-		}
-
-		/* if DP HAL is not ready and get disconnect/hpd low event, then flush queue */
-		if (displayport->dp_ready_wait_state != DP_READY_YES &&
-				((usb_typec_info.id == CCIC_NOTIFY_ID_DP_CONNECT &&
-				  usb_typec_info.sub1 == CCIC_NOTIFY_DETACH) ||
-				 (usb_typec_info.id == CCIC_NOTIFY_ID_DP_HPD &&
-				  usb_typec_info.sub1 == CCIC_NOTIFY_LOW))) {
-			displayport_ccic_queue_flush(displayport);
-		};
-
-		memcpy(&cc_data->event, &usb_typec_info, sizeof(usb_typec_info));
-
-		mutex_lock(&displayport->ccic_lock);
-		list_add_tail(&cc_data->list, &displayport->list_cc);
-		mutex_unlock(&displayport->ccic_lock);
-
-		queue_delayed_work(displayport->dp_wq, &displayport->ccic_event_proceed_work, 0);
-	}
-#else
-	displayport_usb_typec_notification_proceed(displayport, &usb_typec_info);
-#endif
 	return 0;
 }
 
@@ -3764,7 +3556,7 @@ static ssize_t displayport_edid_test_store(struct class *dev,
 					}
 				}
 				edid_test_buf[edid_idx++] = hex;
-			}
+			} 
 			hex = 0;
 			hex_cnt = 0;
 		} else if (hex_cnt == 0 && temp == '0') {
@@ -4091,10 +3883,12 @@ static ssize_t displayport_dex_store(struct class *dev,
 			dex_run, displayport->hpd_current_state);
 
 #if defined(CONFIG_USB_TYPEC_MANAGER_NOTIFIER)
-	if (displayport->dp_ready_wait_state != DP_READY_YES) {
-		displayport_info("dp_ready_wait wakeup\n");
-		displayport->dp_ready_wait_state = DP_READY_YES;
-		wake_up_interruptible(&displayport->dp_ready_wait);
+	if (!displayport->notifier_registered) {
+		displayport->notifier_registered = 1;
+		displayport_info("notifier registered in dex\n");
+		cancel_delayed_work_sync(&displayport->notifier_register_work);
+		manager_notifier_register(&displayport->dp_typec_nb,
+			usb_typec_displayport_notification, MANAGER_NOTIFY_CCIC_DP);
 		goto dex_exit;
 	}
 #endif
@@ -4327,17 +4121,10 @@ static int displayport_probe(struct platform_device *pdev)
 		displayport->dp_not_support = true;
 	}
 #if defined(CONFIG_USB_TYPEC_MANAGER_NOTIFIER)
-#if defined(CONFIG_USE_DISPLAYPORT_CCIC_EVENT_QUEUE)
-	mutex_init(&displayport->ccic_lock);
-	INIT_LIST_HEAD(&displayport->list_cc);
-	INIT_DELAYED_WORK(&displayport->ccic_event_proceed_work,
-			displayport_ccic_event_proceed_work);
-#endif
-	init_waitqueue_head(&displayport->dp_ready_wait);
 	INIT_DELAYED_WORK(&displayport->notifier_register_work,
 			displayport_notifier_register_work);
 	queue_delayed_work(displayport->dp_wq, &displayport->notifier_register_work,
-			msecs_to_jiffies(DP_CCIC_REGISTRATION_DELAY));
+			msecs_to_jiffies(30000));
 #endif
 
 #if defined(CONFIG_EXTCON)
@@ -4473,9 +4260,6 @@ static int displayport_probe(struct platform_device *pdev)
 				displayport_err("failed to create class_attr_log_level\n");
 #ifdef CONFIG_SEC_DISPLAYPORT_BIGDATA
 			secdp_bigdata_init(dp_class);
-#endif
-#ifdef CONFIG_SEC_DISPLAYPORT_SELFTEST
-			self_test_init(displayport, dp_class);
 #endif
 		}
 	}
