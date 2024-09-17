@@ -495,7 +495,7 @@ static void sec_bat_change_pdo(struct sec_battery_info *battery, int vol)
 
 		if (target_pd_index < 0 || target_pd_index >= MAX_PDO_NUM) {
 			pr_info("%s: target_pd_index is wrong %d\n", __func__, target_pd_index);
-			return false;
+			return;
 		}
 
 		pr_info("%s: target_pd_index: %d, now_pd_index: %d\n", __func__,
