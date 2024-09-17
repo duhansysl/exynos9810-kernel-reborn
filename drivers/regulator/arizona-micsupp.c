@@ -47,6 +47,7 @@ struct arizona_micsupp {
 	struct regulator_init_data init_data;
 
 	struct work_struct check_cp_work;
+	struct arizona_micsupp_forced_bypass forced_bypass;
 };
 
 static void arizona_micsupp_check_cp(struct work_struct *work)
