@@ -951,6 +951,7 @@ out:
 }
 EXPORT_SYMBOL_GPL(max77705_usbc_fw_update);
 
+#ifdef CONFIG_MAX77705_FW_PID06_SUPPORT
 void max77705_usbc_fw_setting(struct max77705_dev *max77705, int enforce_do)
 {
 	if (max77705->pdata->extra_fw_enable) {
@@ -975,6 +976,7 @@ void max77705_usbc_fw_setting(struct max77705_dev *max77705, int enforce_do)
 	};
 }
 EXPORT_SYMBOL_GPL(max77705_usbc_fw_setting);
+#endif /* CONFIG_MAX77705_FW_PID06_SUPPORT */
 #endif
 
 static u8 max77705_revision_check(u8 pmic_id, u8 pmic_rev) {
