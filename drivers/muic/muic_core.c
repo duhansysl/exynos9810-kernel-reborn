@@ -245,47 +245,41 @@ int get_afc_mode(void)
 	return afc_mode;
 }
 
-int muic_init_gpio_cb(void *data, int switch_sel)
+static int muic_init_gpio_cb(int switch_sel)
 {
-	struct muic_platform_data *muic_pdata = (struct muic_platform_data *)data;
+	struct muic_platform_data *pdata = &muic_pdata;
 	const char *usb_mode;
 	const char *uart_mode;
-	struct muic_interface_t *muic_if = (struct muic_interface_t *)muic_pdata->muic_if;
 	int ret = 0;
 
 	pr_info("%s (%d)\n", __func__, switch_sel);
 
 	if (switch_sel & SWITCH_SEL_USB_MASK) {
-		muic_pdata->usb_path = MUIC_PATH_USB_AP;
+		pdata->usb_path = MUIC_PATH_USB_AP;
 		usb_mode = "PDA";
 	} else {
-		muic_pdata->usb_path = MUIC_PATH_USB_CP;
+		pdata->usb_path = MUIC_PATH_USB_CP;
 		usb_mode = "MODEM";
 	}
 
-	MUIC_PDATA_FUNC_MULTI_PARAM(muic_if->set_gpio_usb_sel,
-		muic_pdata->drv_data, muic_pdata->uart_path, &ret);
+	if (pdata->set_gpio_usb_sel)
+		ret = pdata->set_gpio_usb_sel(pdata->uart_path);
 
 	if (switch_sel & SWITCH_SEL_UART_MASK) {
-		muic_pdata->uart_path = MUIC_PATH_UART_AP;
+		pdata->uart_path = MUIC_PATH_UART_AP;
 		uart_mode = "AP";
 	} else {
-		muic_pdata->uart_path = MUIC_PATH_UART_CP;
+		pdata->uart_path = MUIC_PATH_UART_CP;
 		uart_mode = "CP";
 	}
 
 	/* These flags MUST be updated again from probe function */
-	muic_pdata->rustproof_on = false;
+	pdata->rustproof_on = false;
 
-#if !defined(CONFIG_SEC_FACTORY) && defined(CONFIG_MUIC_SUPPORT_TYPEB)
-	if (!(switch_sel & SWITCH_SEL_RUSTPROOF_MASK))
-		muic_pdata->rustproof_on = true;
-#endif /* !CONFIG_SEC_FACTORY */
+	pdata->afc_disable = false;
 
-	muic_pdata->afc_disable = false;
-
-	MUIC_PDATA_FUNC_MULTI_PARAM(muic_if->set_gpio_uart_sel,
-		muic_pdata->drv_data, muic_pdata->uart_path, &ret);
+	if (pdata->set_gpio_uart_sel)
+		ret = pdata->set_gpio_uart_sel(pdata->uart_path);
 
 	pr_info("%s: usb_path(%s), uart_path(%s)\n", __func__,
 			usb_mode, uart_mode);
