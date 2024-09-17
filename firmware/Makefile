@@ -155,7 +155,7 @@ fw-shipped-$(CONFIG_TOUCHSCREEN_MELFAS_MSS100) += tsp_melfas/mss100_r7.fw
 fw-shipped-$(CONFIG_TOUCHSCREEN_HIMAX_IC_HX83102) += tsp_himax/hx83102e_gtactive3.bin
 
 # If device is R7 use R7 SPen fw else crown
-if CONFIG_SND_SOC_SAMSUNG_R7_RT5665_TAS2562
+ifdef CONFIG_SND_SOC_SAMSUNG_R7_RT5665_TAS2562
 fw-shipped-$(CONFIG_EPEN_WACOM_W9018) += epen/w9018_r7.fw epen/w9018_r7_garage.fw
 else
 fw-shipped-$(CONFIG_EPEN_WACOM_W9018) += epen/w9018_crown_garage.fw epen/w9018_crown_unit.fw
