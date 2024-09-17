@@ -1090,11 +1090,13 @@ static int pdic_handle_usb_external_notifier_notification(struct notifier_block 
 	case EXTERNAL_NOTIFY_HOSTBLOCK_PRE:
 		if (enable) {
 			set_enable_alternate_mode(ALTERNATE_MODE_STOP);
+#ifdef CONFIG_DUAL_ROLE_USB_INTF
 			if (usbpd_data->dp_is_connect)
 				dp_detach(usbpd_data);
 		} else {
 			if (usbpd_data->dp_is_connect)
 				dp_detach(usbpd_data);
+#endif
 		}
 		break;
 	case EXTERNAL_NOTIFY_HOSTBLOCK_POST:
