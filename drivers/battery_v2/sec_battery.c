@@ -972,7 +972,7 @@ static bool sec_bat_change_vbus_pd(struct sec_battery_info *battery, int *input_
 
 		if (target_pd_index < 0 || target_pd_index >= MAX_PDO_NUM) {
 			pr_info("%s: target_pd_index is wrong %d\n", __func__, target_pd_index);
-			return;
+			return false;
 		}
 
 		pr_info("%s: target_pd_index: %d, now_pd_index: %d\n", __func__,
