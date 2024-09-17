@@ -1882,10 +1882,10 @@ static int mfc_chg_get_property(struct power_supply *psy,
 			val->intval = mfc_get_adc(charger, MFC_ADC_OP_FRQ);
 			pr_info("%s: Operating FQ %dkHz\n", __func__, val->intval);
 			break;
-		case POWER_SUPPLY_EXT_PROP_WIRELESS_TX_CMD:
+		case POWER_SUPPLY_EXT_PROP_WIRELESS_TRX_CMD:
 			val->intval = charger->pdata->tx_data_cmd;
 			break;
-		case POWER_SUPPLY_EXT_PROP_WIRELESS_TX_VAL:
+		case POWER_SUPPLY_EXT_PROP_WIRELESS_TRX_VAL:
 			val->intval = charger->pdata->tx_data_val;
 			break;
 		case POWER_SUPPLY_EXT_PROP_WIRELESS_TX_ID:
