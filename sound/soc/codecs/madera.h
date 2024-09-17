@@ -483,4 +483,7 @@ static inline int madera_unregister_notifier(struct snd_soc_codec *codec,
 	return blocking_notifier_chain_unregister(&madera->notifier, nb);
 }
 
+int madera_enable_force_bypass(struct snd_soc_codec *codec);
+int madera_disable_force_bypass(struct snd_soc_codec *codec);
+
 #endif

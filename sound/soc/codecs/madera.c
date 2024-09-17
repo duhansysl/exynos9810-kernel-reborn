@@ -4900,6 +4900,105 @@ int madera_set_output_mode(struct snd_soc_codec *codec, int output, bool diff)
 }
 EXPORT_SYMBOL_GPL(madera_set_output_mode);
 
+static int madera_set_force_bypass(struct snd_soc_codec *codec, bool set_bypass)
+{
+	struct madera *madera = dev_get_drvdata(codec->dev->parent);
+	struct arizona_micsupp_forced_bypass *micsupp_bypass =
+		madera->micsupp_forced_bypass;
+	const struct madera_micbias_pdata *micbias = madera->pdata.micbias;
+	struct snd_soc_dapm_context *dapm = madera->dapm;
+	const struct regulation_constraints *constraints;
+	unsigned int i, bypass = 0;
+	unsigned int num_micbiases;
+	bool sync = false, bypass_enabled;
+
+	if (!micsupp_bypass)
+		return -ENODEV;
+
+	if (set_bypass)
+		bypass = MADERA_MICB1_BYPASS;
+
+	snd_soc_dapm_mutex_lock(dapm);
+	mutex_lock(&micsupp_bypass->lock);
+
+	micsupp_bypass->forced = set_bypass;
+
+	if (set_bypass) {
+		dev_info(madera->dev, "Set bypass: %d,%d\n",
+			 micsupp_bypass->enabled, micsupp_bypass->regulated);
+
+		regmap_update_bits(madera->regmap,
+				   MADERA_MIC_CHARGE_PUMP_1,
+				   MADERA_CPMIC_BYPASS, MADERA_CPMIC_BYPASS);
+
+		if (micsupp_bypass->enabled && micsupp_bypass->regulated) {
+			snd_soc_dapm_disable_pin_unlocked(madera->dapm,
+							  "MICSUPP");
+			sync = true;
+		}
+	} else {
+		dev_info(madera->dev, "Clear bypass: %d,%d\n",
+			 micsupp_bypass->enabled, micsupp_bypass->regulated);
+
+		if (micsupp_bypass->regulated)
+			regmap_update_bits(madera->regmap,
+					   MADERA_MIC_CHARGE_PUMP_1,
+					   MADERA_CPMIC_BYPASS, 0);
+
+		if (micsupp_bypass->enabled && micsupp_bypass->regulated) {
+			snd_soc_dapm_force_enable_pin_unlocked(madera->dapm,
+							       "MICSUPP");
+			sync = true;
+		}
+	}
+
+	mutex_unlock(&micsupp_bypass->lock);
+	snd_soc_dapm_mutex_unlock(dapm);
+
+	if (sync)
+		snd_soc_dapm_sync(madera->dapm);
+
+	num_micbiases = madera_get_num_micbias(madera);
+
+	for (i = 0; i < num_micbiases; i++) {
+		if (micbias[i].init_data)
+			constraints = &micbias[i].init_data->constraints;
+		else
+			constraints = NULL;
+
+		/*
+		 * Bypass is permanently enabled if we have
+		 * REGULATOR_CHANGE_BYPASS set
+		 */
+		bypass_enabled = !constraints ||
+			constraints->valid_ops_mask & REGULATOR_CHANGE_BYPASS;
+
+		/*
+		 * Always enter bypass, but leaving bypass is allowed only if
+		 * bypass is normally disabled.
+		 */
+		if (set_bypass || !bypass_enabled)
+			regmap_update_bits(madera->regmap,
+					   MADERA_MIC_BIAS_CTRL_1 + i,
+					   MADERA_MICB1_BYPASS,
+					   bypass);
+	}
+
+	return 0;
+}
+
+int madera_enable_force_bypass(struct snd_soc_codec *codec)
+{
+	return madera_set_force_bypass(codec, true);
+}
+EXPORT_SYMBOL_GPL(madera_enable_force_bypass);
+
+int madera_disable_force_bypass(struct snd_soc_codec *codec)
+{
+	return madera_set_force_bypass(codec, false);
+}
+EXPORT_SYMBOL_GPL(madera_disable_force_bypass);
+
 static bool madera_eq_filter_unstable(bool mode, __be16 _a, __be16 _b)
 {
 	s16 a = be16_to_cpu(_a);
