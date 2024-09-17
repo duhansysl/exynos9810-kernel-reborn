@@ -5669,7 +5669,11 @@ static void sec_bat_hv_disable_work(struct work_struct *work)
 
 			select_pdo(1);
 		} else if (battery->current_event & SEC_BAT_CURRENT_EVENT_HV_DISABLE) {
+#if defined(CONFIG_PDIC_PD30)
 			int target_pd_index = battery->pd_list.num_fpdo - 1;
+#else
+			int target_pd_index = battery->pd_list.max_pd_count - 1;
+#endif
 
 			if (target_pd_index < 0 || target_pd_index >= MAX_PDO_NUM) {
 				pr_info("%s: target_pd_index is wrong %d\n", __func__, target_pd_index);
