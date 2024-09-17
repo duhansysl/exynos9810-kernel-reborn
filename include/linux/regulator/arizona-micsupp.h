@@ -24,5 +24,4 @@ struct arizona_micsupp_forced_bypass {
 	bool forced;
 	struct mutex lock;
 };
-
 #endif
