@@ -40,7 +40,7 @@
 #include <linux/ssp_platformdata.h>
 #include <linux/spi/spi.h>
 #include "bbdpl/bbd.h"
-#include <linux/sec_sysfs.h>
+#include <linux/sec_class.h>
 #include "sensor_list.h"
 
 #ifdef CONFIG_SENSORS_SSP_HIFI_BATCHING
