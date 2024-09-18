@@ -151,21 +151,14 @@ fw-shipped-$(CONFIG_TOUCHSCREEN_SEC_TS_Y771) += tsp_sec/y771_crown.fw tsp_sec/y7
 fw-shipped-$(CONFIG_TOUCHSCREEN_FTS7_HAECHI) += tsp_stm/fts7bd50_haechi.fw
 fw-shipped-$(CONFIG_EPEN_WACOM_W9018) += epen/w9018_crown.fw
 
-fw-shipped-$(CONFIG_TOUCHSCREEN_MELFAS_MSS100) += tsp_melfas/mss100_r7.fw
-fw-shipped-$(CONFIG_TOUCHSCREEN_HIMAX_IC_HX83102) += tsp_himax/hx83102e_gtactive3.bin
-
-# If device is R7 use R7 SPen fw else crown
-ifdef CONFIG_SND_SOC_SAMSUNG_R7_RT5665_TAS2562
-fw-shipped-$(CONFIG_EPEN_WACOM_W9018) += epen/w9018_r7.fw epen/w9018_r7_garage.fw
-else
+ifdef CONFIG_SEC_FACTORY
 fw-shipped-$(CONFIG_EPEN_WACOM_W9018) += epen/w9018_crown_garage.fw epen/w9018_crown_unit.fw
 endif
 
-fw-shipped-$(CONFIG_EPEN_WACOM_W9019) += epen/w9019_gtactive3.bin
-
-fw-shipped-all := $(fw-shipped-y) $(fw-shipped-m) $(fw-shipped-)
 
 fw-shipped-$(CONFIG_FIVE_TEE_DRIVER) += five/ffffffff000000000000000000000072.tlbin
+
+fw-shipped-all := $(fw-shipped-y) $(fw-shipped-m) $(fw-shipped-)
 
 quiet_cmd_ihex  = IHEX    $@
       cmd_ihex  = $(OBJCOPY) -Iihex -Obinary $< $@
