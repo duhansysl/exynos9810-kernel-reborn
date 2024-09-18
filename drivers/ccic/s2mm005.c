@@ -1090,13 +1090,11 @@ static int pdic_handle_usb_external_notifier_notification(struct notifier_block 
 	case EXTERNAL_NOTIFY_HOSTBLOCK_PRE:
 		if (enable) {
 			set_enable_alternate_mode(ALTERNATE_MODE_STOP);
-#ifdef CONFIG_DUAL_ROLE_USB_INTF
 			if (usbpd_data->dp_is_connect)
 				dp_detach(usbpd_data);
 		} else {
 			if (usbpd_data->dp_is_connect)
 				dp_detach(usbpd_data);
-#endif
 		}
 		break;
 	case EXTERNAL_NOTIFY_HOSTBLOCK_POST:
@@ -1170,7 +1168,6 @@ static int s2mm005_usbpd_probe(struct i2c_client *i2c,
 	struct otg_notify *o_notify = get_otg_notify();
 #endif
 #endif
-
 	pr_info("%s\n", __func__);
 	if (!i2c_check_functionality(adapter, I2C_FUNC_SMBUS_BYTE_DATA)) {
 		dev_err(&i2c->dev, "i2c functionality check error\n");

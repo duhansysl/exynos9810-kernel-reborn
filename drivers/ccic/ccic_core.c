@@ -22,7 +22,7 @@
 
 #include <linux/device.h>
 #include <linux/module.h>
-#include <linux/sec_class.h>
+#include <linux/sec_sysfs.h>
 #include <linux/ccic/ccic_core.h>
 #include <linux/ccic/ccic_sysfs.h>
 #include <linux/power_supply.h>
@@ -35,7 +35,7 @@
 
 #include <linux/switch.h>
 
-extern struct device *ccic_device;
+struct device *ccic_device;
 static struct switch_dev switch_dock = {
 	.name = "ccic_dock",
 };
@@ -126,7 +126,6 @@ int ccic_core_init(void)
 
 	pr_info("%s\n", __func__);
 
-#if 0
 	ccic_device = sec_device_create(NULL, "ccic");
 	if (IS_ERR(ccic_device)) {
 		pr_err("%s Failed to create device(switch)!\n", __func__);
@@ -134,9 +133,8 @@ int ccic_core_init(void)
 		goto out;
 	}
 	dev_set_drvdata(ccic_device, NULL);
-out:
-#endif
 	ccic_sysfs_init_attrs();
+out:
 	return ret;
 }
 void *ccic_core_get_drvdata(void)
