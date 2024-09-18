@@ -135,30 +135,25 @@ static DEFINE_SPINLOCK(siova_pool_lock);
  * - SEC MOBILE, kernel core memory
  */
 unsigned int camera_heap_id;
-unsigned int secure_camera_heap_id;
 unsigned int camera_contig_heap_id;
 
 static void exynos_ion_init_camera_heaps(void)
 {
-       int i;
-       for (i = 0; i < nr_heaps; i++) {
-               if (plat_heaps[i].heap) {
-                       struct ion_heap *heap = plat_heaps[i].heap;
-                       if (!strncmp(heap->name, "camera_contig", 13)) {
-                               WARN_ON(camera_contig_heap_id);
-                               camera_contig_heap_id = heap->id;
-                       } else if (!strncmp(heap->name, "secure_camera", 13)) {
-                               WARN_ON(camera_heap_id);
-                               secure_camera_heap_id = heap->id;
-                       } else if (!strncmp(heap->name, "camera", 6)) {
-                               WARN_ON(camera_heap_id);
-                               camera_heap_id = heap->id;
-                       }
-               }
-       }
-       pr_info("%s: [heap id] camera %d, secure_camera %d, camera_contig %d\n",
-                       __func__, camera_heap_id,
-                       secure_camera_heap_id, camera_contig_heap_id);
+	int i;
+	for (i = 0; i < nr_heaps; i++) {
+		if (plat_heaps[i].heap) {
+			struct ion_heap *heap = plat_heaps[i].heap;
+			if (!strncmp(heap->name, "camera_contig", 13)) {
+				WARN_ON(camera_contig_heap_id);
+				camera_contig_heap_id = heap->id;
+			} else if (!strncmp(heap->name, "camera", 6)) {
+				WARN_ON(camera_heap_id);
+				camera_heap_id = heap->id;
+			}
+		}
+	}
+	pr_info("%s: [heap id] camera %d, camera_contig %d\n",
+			__func__, camera_heap_id, camera_contig_heap_id);
 }
 
 #define MAX_IOVA_ALIGNMENT	12
@@ -297,10 +292,6 @@ int ion_secure_protect(struct ion_buffer *buffer)
 						heap->name);
 		return -EPERM;
 	}
-
-       /* use same protection ID for both of camera & camera_contig heap */
-       if (info->prot_desc.flags == camera_contig_heap_id)
-               info->prot_desc.flags = camera_heap_id;
 
 	return	__ion_secure_protect_buffer(pdata, buffer);
 }
