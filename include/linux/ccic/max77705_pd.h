@@ -112,7 +112,6 @@ struct max77705_pd_data {
 
 	bool pdo_list;
 	bool psrdy_received;
-	bool cc_sbu_short;
 
 	int cc_status;
 

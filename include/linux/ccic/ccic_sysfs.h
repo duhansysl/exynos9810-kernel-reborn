@@ -32,8 +32,7 @@ extern const struct attribute_group ccic_sysfs_group;
 
 enum {
 	BUILT_IN = 0,
-	UMS = 1,
-	SPU = 2,
+	UMS,
 };
 
 enum ccic_sysfs_property {
