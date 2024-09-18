@@ -1094,7 +1094,9 @@ static int max77705_i2c_probe(struct i2c_client *i2c,
 	i2c_set_clientdata(max77705->fuelgauge, max77705);
 
 #ifdef CONFIG_CCIC_MAX77705
+#ifdef CONFIG_MAX77705_FW_PID06_SUPPORT
 	max77705_usbc_fw_setting(max77705, 0);
+#endif
 #endif
 
 	max77705->debug = i2c_new_dummy(i2c->adapter, I2C_ADDR_DEBUG);

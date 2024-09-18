@@ -765,8 +765,10 @@ static int max77705_firmware_update_sys(struct max77705_usbc_platform_data *data
 		set_fs(KERNEL_DS);
 		break;
 	case BUILT_IN:
+#ifdef CONFIG_MAX77705_FW_PID06_SUPPORT
 		max77705_usbc_fw_setting(usbc_data->max77705, fwup[fw_dir].enforce_do);
 		return 0;
+#endif
 	default:
 		return -EINVAL;
 	}
