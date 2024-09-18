@@ -32,7 +32,7 @@
 #include <linux/of_gpio.h>
 #endif
 #include <linux/i2c/pcal6524.h>
-#include <linux/sec_sysfs.h>
+#include <linux/sec_class.h>
 
 struct pcal6524_chip {
 	struct i2c_client *client;
