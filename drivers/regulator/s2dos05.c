@@ -37,7 +37,7 @@
 #include <linux/regulator/s2dos05.h>
 #include <linux/regulator/of_regulator.h>
 #ifdef CONFIG_SEC_PM
-#include <linux/sec_sysfs.h>
+#include <linux/sec_class.h>
 #ifdef CONFIG_SEC_FACTORY
 #include <linux/fb.h>
 #endif /* CONFIG_SEC_FACTORY */

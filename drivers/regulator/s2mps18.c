@@ -35,7 +35,7 @@
 #include <linux/cpufreq.h>
 #endif /* CONFIG_SEC_PM_DEBUG */
 #ifdef CONFIG_SEC_PM
-#include <linux/sec_sysfs.h>
+#include <linux/sec_class.h>
 #endif /* CONFIG_SEC_PM */
 
 #ifdef CONFIG_SEC_PM_BIGDATA
