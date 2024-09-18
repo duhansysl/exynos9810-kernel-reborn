@@ -43,7 +43,6 @@ struct max77705_haptic_pdata {
 	int gpio;
 	char *regulator_name;
 	unsigned int pwm_id;
-	const char *vib_type;
 
 	/* for multi-frequency */
 	int multi_frequency;
@@ -66,10 +65,7 @@ struct max77705_platform_data {
 	int irq_base;
 	int irq_gpio;
 	bool wakeup;
-	bool blocking_waterevent;
-	bool extra_fw_enable;
 	int wpc_en;
-	int fw_product_id;
 	struct muic_platform_data *muic_pdata;
 
 	int num_regulators;
@@ -79,7 +75,7 @@ struct max77705_platform_data {
 #endif
 	struct mfd_cell *sub_devices;
 	int num_subdevs;
-	bool support_audio;
+	char *wireless_charger_name;
 };
 
 struct max77705 {
