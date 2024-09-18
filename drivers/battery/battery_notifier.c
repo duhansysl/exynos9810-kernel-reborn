@@ -174,7 +174,6 @@ void pdic_notifier_call(struct pdic_notifier_struct *value)
 	pdic_notifier_set_property(value);
 	battery_notifier_notify(PDIC_NOTIFY);
 }
-
 int battery_notifier_init(void)
 {
 	int ret = 0;

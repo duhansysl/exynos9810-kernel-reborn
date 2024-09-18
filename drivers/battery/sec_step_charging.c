@@ -9,12 +9,11 @@
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  */
-#include "include/sec_battery.h"
+#include <linux/battery/sec_battery.h>
 
 #define STEP_CHARGING_CONDITION_VOLTAGE	0x01
 #define STEP_CHARGING_CONDITION_SOC	0x02
-#define STEP_CHARGING_CONDITION_CHARGE_POWER 0x04
-#define STEP_CHARGING_CONDITION_ONLINE 0x08
+
 
 void sec_bat_reset_step_charging(struct sec_battery_info *battery)
 {
@@ -31,14 +30,6 @@ bool sec_bat_check_step_charging(struct sec_battery_info *battery)
 	if (!battery->step_charging_type)
 		return false;
 
-	if (battery->step_charging_type & STEP_CHARGING_CONDITION_CHARGE_POWER)
-		if (battery->charge_power < battery->step_charging_charge_power)
-			return false;
-
-	if (battery->step_charging_type & STEP_CHARGING_CONDITION_ONLINE)
-		if (!is_hv_wire_12v_type(battery->cable_type))
-			return false;
-
 	if (battery->step_charging_status < 0)
 		i = 0;
 	else
@@ -48,22 +39,20 @@ bool sec_bat_check_step_charging(struct sec_battery_info *battery)
 		value = battery->voltage_avg;
 	else if (battery->step_charging_type & STEP_CHARGING_CONDITION_SOC)
 		value = battery->capacity;
-	else
-		return false;
 	
 	while(i < battery->step_charging_step - 1) {
 		if (value < battery->pdata->step_charging_condition[i]){
 			break;
 		}
 		i++;
-		if(battery->step_charging_status != -1)
-			break;
 	}
 
 	if (i != battery->step_charging_status) {
 		pr_info("%s : prev=%d, new=%d, value=%d, current=%d\n", __func__,
 			battery->step_charging_status, i, value, battery->pdata->step_charging_current[i]);
-		battery->pdata->charging_current[battery->cable_type].fast_charging_current = battery->pdata->step_charging_current[i];
+		battery->pdata->charging_current[POWER_SUPPLY_TYPE_HV_MAINS_12V].fast_charging_current = battery->pdata->step_charging_current[i];
+		battery->pdata->charging_current[POWER_SUPPLY_TYPE_HV_MAINS].fast_charging_current = battery->pdata->step_charging_current[i];
+		battery->pdata->charging_current[POWER_SUPPLY_TYPE_HV_ERR].fast_charging_current = battery->pdata->step_charging_current[i];
 		battery->step_charging_status = i;
 		return true;
 	}
@@ -85,12 +74,6 @@ void sec_step_charging_init(struct sec_battery_info *battery, struct device *dev
 		pr_err("%s: step_charging_type is Empty\n", __func__);
 		battery->step_charging_type = 0;
 		return;
-	}
-	ret = of_property_read_u32(np, "battery,step_charging_charge_power",
-			&battery->step_charging_charge_power);
-	if (ret) {
-		pr_err("%s: step_charging_charge_power is Empty\n", __func__);
-		battery->step_charging_charge_power = 20000;
 	}
 	p = of_get_property(np, "battery,step_charging_condtion", &len);
 	if (!p) {
@@ -118,8 +101,8 @@ void sec_step_charging_init(struct sec_battery_info *battery, struct device *dev
 					__func__, pdata->step_charging_condition[i],
 					pdata->step_charging_current[i]);
 				}
-				pdata->max_charging_current = pdata->step_charging_current[0]; 
 			}
 		}
 	}
 }
+
