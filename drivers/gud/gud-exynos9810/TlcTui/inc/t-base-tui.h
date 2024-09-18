@@ -1,4 +1,3 @@
-/* SPDX-License-Identifier: GPL-2.0 */
 /*
  * Copyright (c) 2013-2015 TRUSTONIC LIMITED
  * All Rights Reserved.

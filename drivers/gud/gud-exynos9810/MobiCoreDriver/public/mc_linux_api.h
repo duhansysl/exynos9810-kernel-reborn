@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2013-2019 TRUSTONIC LIMITED
+ * Copyright (c) 2013-2015 TRUSTONIC LIMITED
  * All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or
@@ -11,23 +11,22 @@ Copyright (c) 2013-2019 TRUSTONIC LIMITED
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  */
-
 #ifndef _MC_LINUX_API_H_
 #define _MC_LINUX_API_H_
 
 #include <linux/types.h>
 
 /*
- * set affinity of tee workser threads to big core or default core affinity
+ * Switch TEE active core to core_num, defined as linux
+ * core id
  */
+int mc_switch_core(int core_num);
 
-#define TEE_WORKER_THREADS_ON_BIG_CORE_ONLY
+/*
+ * Return TEE active core as Linux core id
+ */
+int mc_active_core(void);
 
-#if defined(TEE_WORKER_THREADS_ON_BIG_CORE_ONLY) 
-#define BIG_CORE_AFFINITY_MASK (0xF0) 
-void set_tee_worker_threads_on_big_core(bool big_core);
-#else
-void set_tee_worker_threads_on_big_core(bool __attribute__((unused))big_core);
-#endif
+int mc_switch_core_ctrl(uint32_t core_num, uint32_t ctrl_idx);
 
 #endif /* _MC_LINUX_API_H_ */

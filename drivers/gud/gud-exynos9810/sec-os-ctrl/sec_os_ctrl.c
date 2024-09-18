@@ -14,7 +14,6 @@
 #include <linux/sysfs.h>
 #include <linux/device.h>
 #include <linux/mutex.h>
-#include <mc_linux_api.h>
 
 #define DEFAULT_LITTLE_CORE	1
 #define DEFAULT_BIG_CORE	4
@@ -48,18 +47,18 @@ static ssize_t migrate_os_store(struct kobject *kobj,
 	core_num = ASCII_TO_DIGIT_NUM(buf[1]);
 	if (buf[0] == 'L') {
 		if ((buf[1] == 0xA) || (buf[1] == 0x0)) {	/* if LF(Line Feed, 0xA) or NULL(0x0) */
-			new_core = 0;
+			new_core = DEFAULT_LITTLE_CORE;
 		} else if (core_num < 4) {	/* From core 0 to core 3 */
-			new_core = 0;
+			new_core = core_num;
 		} else {
 			pr_err("[LITTLE] Enter correct core number(0~3)\n");
 			return count;
 		}
 	} else if (buf[0] == 'b') {
 		if ((buf[1] == 0xA) || (buf[1] == 0x0)) {	/* if LF(Line Feed, 0xA) or NULL(0x0) */
-			new_core = 1;
+			new_core = DEFAULT_BIG_CORE;
 		} else if (core_num < 4) {	/* From core 0 to core 3 */
-			new_core = 1;
+			new_core = core_num + 4;
 		} else {
 			pr_err("[big] Enter correct core number(0~3)\n");
 			return count;
@@ -71,7 +70,7 @@ static ssize_t migrate_os_store(struct kobject *kobj,
 		pr_err("Fail to get lock\n");
 		return count;
 	}
-	set_tee_worker_threads_on_big_core(new_core);
+	ret = mc_switch_core_ctrl(new_core, 0);
 	mutex_unlock(&sec_os_ctrl_lock);
 	if (ret != 0) {
 		pr_err("Secure OS migration is failed!\n");
@@ -86,7 +85,7 @@ static ssize_t migrate_os_store(struct kobject *kobj,
 static ssize_t current_core_show(struct kobject *kobj,
 		struct kobj_attribute *attr, char *buf)
 {
-//	current_core = mc_active_core();
+	current_core = mc_active_core();
 
 	return sprintf(buf, "Secure OS is on core [%c%d]\n",
 			(current_core < 4) ? 'L' : 'b', (current_core & 3));

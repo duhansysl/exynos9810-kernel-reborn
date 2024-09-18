@@ -1,4 +1,3 @@
-/* SPDX-License-Identifier: GPL-2.0 */
 /*
  * Copyright (c) 2013-2018 TRUSTONIC LIMITED
  * All Rights Reserved.
@@ -39,12 +38,53 @@
 #define MC_INTR_SSIQ	246
 #endif
 
-/* Force usage of xenbus_map_ring_valloc as of Linux v4.1 */
-#define MC_XENBUS_MAP_RING_VALLOC_4_1
+/* Enable Runtime Power Management */
+#if defined(CONFIG_SOC_EXYNOS3472)
+#ifdef CONFIG_PM_RUNTIME
+#define MC_PM_RUNTIME
+#endif
+#endif /* CONFIG_SOC_EXYNOS3472 */
 
-#define TEE_WORKER_THREADS_ON_BIG_CORE_ONLY
+#if !defined(CONFIG_SOC_EXYNOS3472)
 
-#define NQ_TEE_WORKER_THREADS   4
+#define TBASE_CORE_SWITCHER
+
+#if defined(CONFIG_SOC_EXYNOS3250)
+#define COUNT_OF_CPUS 2
+#elif defined(CONFIG_SOC_EXYNOS3475)
+#define COUNT_OF_CPUS 4
+#else
+#define COUNT_OF_CPUS 8
+#endif
+
+/* Values of MPIDR regs */
+#if defined(CONFIG_SOC_EXYNOS3250) || defined(CONFIG_SOC_EXYNOS3475)
+#define CPU_IDS {0x0000, 0x0001, 0x0002, 0x0003}
+#elif defined(CONFIG_SOC_EXYNOS7580) || defined(CONFIG_SOC_EXYNOS7870) || defined(CONFIG_SOC_EXYNOS7880)
+#define CPU_IDS {0x0000, 0x0001, 0x0002, 0x0003, 0x0100, 0x0101, 0x0102, 0x0103}
+#elif defined(CONFIG_SOC_EXYNOS9810)
+/* On Cortex A55, bit 24 is used to differentiate
+ * between different MPIDR format. So the whole MPIDR
+ * must be transmited
+ */
+#define CPU_IDS {0x81000000, 0x81000100, 0x81000200, 0x81000300, 0x80000100,\
+		0x80000101, 0x80000102, 0x80000103}
+#elif defined(CONFIG_SOC_EXYNOS7885)
+#define CPU_IDS {0x0100, 0x0101, 0x0102, 0x0103, 0x0200, 0x0201, 0x0000, 0x0001}
+#else
+#define CPU_IDS {0x0100, 0x0101, 0x0102, 0x0103, 0x0000, 0x0001, 0x0002, 0x0003}
+#endif
+
+#endif /* !CONFIG_SOC_EXYNOS3472 */
+
+/* SWd LPAE */
+#if defined(CONFIG_SOC_EXYNOS5433) || defined(CONFIG_SOC_EXYNOS7420) || \
+	defined(CONFIG_SOC_EXYNOS7580) || defined(CONFIG_SOC_EXYNOS7870) || \
+	defined(CONFIG_SOC_EXYNOS8890) || defined(CONFIG_SOC_EXYNOS7880) || defined(CONFIG_SOC_EXYNOS8895)
+#ifndef CONFIG_TRUSTONIC_TEE_LPAE
+#define CONFIG_TRUSTONIC_TEE_LPAE
+#endif
+#endif /* CONFIG_SOC_EXYNOS5433 */
 
 /* Enable Fastcall worker thread */
 #define MC_FASTCALL_WORKER_THREAD
@@ -52,8 +92,13 @@
 /* Set Parameters for Secure OS Boosting */
 #define DEFAULT_LITTLE_CORE		0
 #define NONBOOT_LITTLE_CORE		1
-#define DEFAULT_BIG_CORE		6
+#define DEFAULT_BIG_CORE		4
 #define MIGRATE_TARGET_CORE     DEFAULT_BIG_CORE
+
+#define START_BIG_CORE			DEFAULT_BIG_CORE
+#define END_BIG_CORE			7
+#define START_LITTLE_CORE		DEFAULT_LITTLE_CORE
+#define END_LITTLE_CORE			3
 
 #define MC_INTR_LOCAL_TIMER            (IRQ_SPI(470) + DEFAULT_BIG_CORE)
 

@@ -1,6 +1,5 @@
-/* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2013-2019 TRUSTONIC LIMITED
+ * Copyright (c) 2013-2018 TRUSTONIC LIMITED
  * All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or
@@ -27,9 +26,8 @@
 #define MC_VERSION_MAJOR(x) ((x) >> 16)
 #define MC_VERSION_MINOR(x) ((x) & 0xffff)
 
-#define mc_dev_err(__ret__, fmt, ...) \
-	dev_err(g_ctx.mcd, "ERROR %d %s: " fmt "\n", \
-		__ret__, __func__, ##__VA_ARGS__)
+#define mc_dev_err(fmt, ...) \
+	dev_err(g_ctx.mcd, "%s: " fmt "\n", __func__, ##__VA_ARGS__)
 
 #define mc_dev_info(fmt, ...) \
 	dev_info(g_ctx.mcd, "%s: " fmt "\n", __func__, ##__VA_ARGS__)
@@ -51,6 +49,26 @@ struct mc_device_ctx {
 	/* debugfs root */
 	struct dentry		*debug_dir;
 
+	/* Features */
+	/* - SWd uses LPAE MMU table format */
+	bool			f_lpae;
+	/* - SWd can set a time out to get scheduled at a future time */
+	bool			f_timeout;
+	/* - SWd supports memory extension which allows for bigger TAs */
+	bool			f_mem_ext;
+	/* - SWd supports TA authorisation */
+	bool			f_ta_auth;
+	/* - SWd can map several buffers at once */
+	bool			f_multimap;
+	/* - SWd supports GP client authentication */
+	bool			f_client_login;
+	/* - SWd needs time updates */
+	bool			f_time;
+	/* - SWd supports inter-world protocol */
+	bool			f_iwp;
+	/* - SWd needs both wall and monotonic times */
+	bool			f_monotonic_time;
+
 	/* Debug counters */
 	atomic_t		c_clients;
 	atomic_t		c_cbufs;
@@ -60,8 +78,6 @@ struct mc_device_ctx {
 	atomic_t		c_mmus;
 	atomic_t		c_maps;
 	atomic_t		c_slots;
-	atomic_t		c_xen_maps;
-	atomic_t		c_xen_fes;
 };
 
 extern struct mc_device_ctx g_ctx;

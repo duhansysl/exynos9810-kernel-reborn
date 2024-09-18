@@ -1,6 +1,5 @@
-/* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2013-2017 TRUSTONIC LIMITED
+ * Copyright (c) 2013-2014 TRUSTONIC LIMITED
  * All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or
@@ -27,23 +26,21 @@
 
 #if (defined(CONFIG_ARM64) && !defined(MC_ARMV7_FC)) || (defined(MC_AARCH32_FC))
 
-#define FASTCALL_OWNER_TZOS          (0x3F000000)
-#define FASTCALL_ATOMIC_MASK         BIT(31)
-/**Trusted OS Fastcalls SMC32 */
-#define MC_FC_STD32_BASE \
-			((u32)(FASTCALL_OWNER_TZOS | FASTCALL_ATOMIC_MASK))
-/* SMC32 Trusted OS owned Fastcalls */
-#define MC_FC_STD32(x)	((u32)(MC_FC_STD32_BASE + (x)))
+/* These should be handled as 64-bit FCs; now they are more like 32bits... */
+#define MC_FC_STD64_BASE	((u32)0xFF000000)
+#define MC_FC_STD64(x)	((u32)(MC_FC_STD64_BASE + (x)))
 
-#define MC_FC_INIT	MC_FC_STD32(1)  /**< Initializing FastCall. */
-#define MC_FC_INFO	MC_FC_STD32(2)  /**< Info FastCall. */
-#define MC_FC_MEM_TRACE	MC_FC_STD32(10)  /**< Enable SWd tracing via memory */
+#define MC_FC_INIT	MC_FC_STD64(1)  /**< Initializing FastCall. */
+#define MC_FC_INFO	MC_FC_STD64(2)  /**< Info FastCall. */
+#define MC_FC_MEM_TRACE	MC_FC_STD64(10)  /**< Enable SWd tracing via memory */
+#define MC_FC_SWAP_CPU	MC_FC_STD64(54)  /**< Change new active Core */
 
 #else
 
 #define MC_FC_INIT	((u32)(-1))  /**< Initializing FastCall. */
 #define MC_FC_INFO	((u32)(-2))  /**< Info FastCall. */
 #define MC_FC_MEM_TRACE	((u32)(-31))  /**< Enable SWd tracing via memory */
+#define MC_FC_SWAP_CPU	((u32)(0x84000005))  /**< Change new active Core */
 
 #endif
 
@@ -52,19 +49,10 @@
 /** @name MobiCore SMC Defines
  * Defines the different secure monitor calls (SMC) for world switching.
  */
-
-/**< Yield from SWd to Nwd while IDLE  */
-#define MC_SMC_S_YIELD			1
-/**< Yield from SWd to Nwd while BUSY  */
-#define MC_SMC_S_BUSY			2
-/**< Yield to switch from NWd to SWd.  */
+/**< Yield to switch from NWd to SWd. */
 #define MC_SMC_N_YIELD			3
-/**< SIQ to switch from NWd to SWd.    */
+/**< SIQ to switch from NWd to SWd. */
 #define MC_SMC_N_SIQ			4
-/**< Yield from SWd to Nwd while interrupted */
-#define MC_SMC_S_RESUME			5
-/**< Yield from SWd to Nwd when halted */
-#define MC_SMC_S_HALT			6
 /** @} */
 
 /** @name MobiCore status
@@ -137,10 +125,6 @@
 #define MC_EXT_INFO_ID_MC_EXC_UUID1	24
 #define MC_EXT_INFO_ID_MC_EXC_UUID2	25
 #define MC_EXT_INFO_ID_MC_EXC_UUID3	26
-/**< MobiCore exception handler last crashing task offset */
-#define MC_EXT_INFO_ID_TASK_OFFSET	27
-/**< MobiCore exception handler last crashing task's mclib offset */
-#define MC_EXT_INFO_ID_MCLIB_OFFSET	28
 
 /** @} */
 

@@ -1,6 +1,5 @@
-// SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2013-2019 TRUSTONIC LIMITED
+ * Copyright (c) 2013-2017 TRUSTONIC LIMITED
  * All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or
@@ -26,7 +25,6 @@
 
 #include "main.h"
 #include "client.h"
-#include "protocol.h"
 
 static enum mc_result convert(int err)
 {
@@ -122,20 +120,20 @@ enum mc_result mc_open_device(u32 device_id)
 	/* Make sure TEE was started */
 	ret = mc_wait_tee_start();
 	if (ret) {
-		mc_dev_err(ret, "TEE failed to start, now or in the past");
+		mc_dev_err("TEE failed to start, now or in the past");
 		mc_result = MC_DRV_ERR_INVALID_DEVICE_FILE;
 		goto end;
 	}
 
 	if (!open_count)
-		client = client_create(true, protocol_vm_id());
+		client = client_create(true);
 
 	if (client) {
 		open_count++;
 		mc_dev_devel("successfully opened the device");
 	} else {
 		mc_result = MC_DRV_ERR_INVALID_DEVICE_FILE;
-		mc_dev_err(-ENOMEM, "could not open device");
+		mc_dev_err("could not open device");
 	}
 
 end:
@@ -179,9 +177,11 @@ end:
 EXPORT_SYMBOL(mc_close_device);
 
 enum mc_result mc_open_session(struct mc_session_handle *session,
-			       const struct mc_uuid_t *uuid,
-			       u8 *tci_va, u32 tci_len)
+			       const struct mc_uuid_t *uuid, u8 *tci, u32 len)
 {
+	struct mc_identity identity = {
+		.login_type = LOGIN_PUBLIC,
+	};
 	enum mc_result ret;
 
 	/* Check parameters */
@@ -195,21 +195,22 @@ enum mc_result mc_open_session(struct mc_session_handle *session,
 		return MC_DRV_ERR_DAEMON_DEVICE_NOT_OPEN;
 
 	/* Call core api */
-	ret = convert(
-		client_mc_open_session(client, uuid, (uintptr_t)tci_va, tci_len,
-				       &session->session_id));
+	ret = convert(client_open_session(client, &session->session_id, uuid,
+					  (uintptr_t)tci, len, false,
+					  &identity, -1));
 	clientlib_client_put();
 	return ret;
 }
 EXPORT_SYMBOL(mc_open_session);
 
-enum mc_result mc_open_trustlet(struct mc_session_handle *session,
-				u8 *ta_va, u32 ta_len, u8 *tci_va, u32 tci_len)
+enum mc_result mc_open_trustlet(struct mc_session_handle *session, u32 spid,
+				u8 *trustlet, u32 trustlet_len,
+				u8 *tci, u32 len)
 {
 	enum mc_result ret;
 
 	/* Check parameters */
-	if (!session || !ta_va || !ta_len)
+	if (!session || !trustlet)
 		return MC_DRV_ERR_INVALID_PARAMETER;
 
 	if (!is_valid_device(session->device_id))
@@ -219,10 +220,9 @@ enum mc_result mc_open_trustlet(struct mc_session_handle *session,
 		return MC_DRV_ERR_DAEMON_DEVICE_NOT_OPEN;
 
 	/* Call core api */
-	ret = convert(
-		client_mc_open_trustlet(client, (uintptr_t)ta_va, ta_len,
-					(uintptr_t)tci_va, tci_len,
-					&session->session_id));
+	ret = convert(client_open_trustlet(client, &session->session_id, spid,
+					   (uintptr_t)trustlet, trustlet_len,
+					   (uintptr_t)tci, len, -1));
 	clientlib_client_put();
 	return ret;
 }
@@ -289,7 +289,7 @@ enum mc_result mc_wait_notification(struct mc_session_handle *session,
 	do {
 		ret = convert(client_waitnotif_session(client,
 						       session->session_id,
-						       timeout));
+						       timeout, false));
 	} while ((timeout == MC_INFINITE_TIMEOUT) &&
 		 (ret == MC_DRV_ERR_INTERRUPTED_BY_SIGNAL));
 
@@ -350,11 +350,8 @@ enum mc_result mc_map(struct mc_session_handle *session, void *address,
 		      u32 length, struct mc_bulk_map *map_info)
 {
 	enum mc_result ret;
-	struct mc_ioctl_buffer buf = {
-		.va = (uintptr_t)address,
-		.len = length,
-		.flags = MC_IO_MAP_INPUT_OUTPUT,
-	};
+	struct mc_ioctl_buffer bufs[MC_MAP_MAX];
+	u32 i;
 
 	/* Check parameters */
 	if (!session)
@@ -370,10 +367,16 @@ enum mc_result mc_map(struct mc_session_handle *session, void *address,
 		return MC_DRV_ERR_DAEMON_DEVICE_NOT_OPEN;
 
 	/* Call core api */
-	ret = convert(client_mc_map(client, session->session_id, NULL, &buf));
+	bufs[0].va = (uintptr_t)address;
+	bufs[0].len = length;
+	for (i = 1; i < MC_MAP_MAX; i++)
+		bufs[i].va = 0;
+
+	ret = convert(client_map_session_wsms(client, session->session_id,
+					      bufs, -1));
 	if (ret == MC_DRV_OK) {
-		map_info->secure_virt_addr = buf.sva;
-		map_info->secure_virt_len = buf.len;
+		map_info->secure_virt_addr = bufs[0].sva;
+		map_info->secure_virt_len = bufs[0].len;
 	}
 
 	clientlib_client_put();
@@ -385,10 +388,8 @@ enum mc_result mc_unmap(struct mc_session_handle *session, void *address,
 			struct mc_bulk_map *map_info)
 {
 	enum mc_result ret;
-	struct mc_ioctl_buffer buf = {
-		.va = (uintptr_t)address,
-		.flags = MC_IO_MAP_INPUT_OUTPUT,
-	};
+	struct mc_ioctl_buffer bufs[MC_MAP_MAX];
+	u32 i;
 
 	/* Check parameters */
 	if (!session)
@@ -404,10 +405,14 @@ enum mc_result mc_unmap(struct mc_session_handle *session, void *address,
 		return MC_DRV_ERR_DAEMON_DEVICE_NOT_OPEN;
 
 	/* Call core api */
-	buf.len = map_info->secure_virt_len;
-	buf.sva = map_info->secure_virt_addr;
+	bufs[0].va = (uintptr_t)address;
+	bufs[0].len = map_info->secure_virt_len;
+	bufs[0].sva = map_info->secure_virt_addr;
+	for (i = 1; i < MC_MAP_MAX; i++)
+		bufs[i].va = 0;
 
-	ret = convert(client_mc_unmap(client, session->session_id, &buf));
+	ret = convert(client_unmap_session_wsms(client, session->session_id,
+						bufs));
 	clientlib_client_put();
 	return ret;
 }

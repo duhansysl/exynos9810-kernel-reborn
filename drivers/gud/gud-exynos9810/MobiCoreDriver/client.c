@@ -1,6 +1,5 @@
-// SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2013-2019 TRUSTONIC LIMITED
+ * Copyright (c) 2013-2018 TRUSTONIC LIMITED
  * All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or
@@ -30,6 +29,7 @@
 #include "public/mc_admin.h"
 
 #include "main.h"
+#include "admin.h"	/* tee_object* */
 #include "mmu.h"
 #include "session.h"
 #include "client.h"
@@ -59,8 +59,8 @@ struct tee_client {
 	struct list_head	operations;
 	/* The list entry to attach to "ctx.clients" list */
 	struct list_head	list;
-	/* Virtual Machine ID string of the client */
-	char			vm_id[16];
+	/* task_struct for the client application, if going through a proxy */
+	struct task_struct	*task;
 };
 
 /* Context */
@@ -132,16 +132,14 @@ static void cbuf_release(struct kref *kref)
 	client_put(client);
 	/* Free */
 	free_pages(cbuf->addr, cbuf->order);
-	mc_dev_devel(
-	"freed cbuf %p: client %p addr %lx uaddr %lx len %u phys 0x%llx",
-		     cbuf, client, cbuf->addr, cbuf->uaddr, cbuf->len,
-		     (u64)cbuf->phys);
+	mc_dev_devel("freed cbuf %p: client %p addr %lx uaddr %lx len %u",
+		     cbuf, client, cbuf->addr, cbuf->uaddr, cbuf->len);
 	kfree(cbuf);
 	/* Decrement debug counter */
 	atomic_dec(&g_ctx.c_cbufs);
 }
 
-void tee_cbuf_put(struct cbuf *cbuf)
+static inline void cbuf_put(struct cbuf *cbuf)
 {
 	struct tee_client *client = cbuf->client;
 
@@ -168,9 +166,8 @@ static int cbuf_map(struct vm_area_struct *vmarea, uintptr_t addr, u32 len,
 		return -EINVAL;
 
 	if (len != (u32)(vmarea->vm_end - vmarea->vm_start)) {
-		ret = -EINVAL;
-		mc_dev_err(ret, "cbuf incompatible with vma");
-		return ret;
+		mc_dev_err("cbuf incompatible with vma");
+		return -EINVAL;
 	}
 
 	vmarea->vm_flags |= VM_IO;
@@ -180,7 +177,7 @@ static int cbuf_map(struct vm_area_struct *vmarea, uintptr_t addr, u32 len,
 			      vmarea->vm_page_prot);
 	if (ret) {
 		*uaddr = 0;
-		mc_dev_err(ret, "User mapping failed");
+		mc_dev_err("User mapping failed");
 		return ret;
 	}
 
@@ -196,73 +193,102 @@ static inline bool client_is_kernel(struct tee_client *client)
 	return !client->pid;
 }
 
+/*
+ * The proxy gives us the fd of its server-side socket, so we can find out the
+ * task then the mm of its client. mmput() must be called to free the resource.
+ */
+static struct mm_struct *get_mm_from_client_fd(int client_fd)
+{
+	struct mm_struct *mm = NULL;
+	struct socket *sock;
+	int err;
+
+	if (client_fd < 0)
+		return get_task_mm(current);
+
+	sock = sockfd_lookup(client_fd, &err);
+	if (!sock)
+		return NULL;
+
+	if (sock->sk && sock->sk->sk_peer_pid) {
+		struct task_struct *task;
+
+		rcu_read_lock();
+		task = pid_task(sock->sk->sk_peer_pid, PIDTYPE_PID);
+		if (task)
+			mm = get_task_mm(task);
+
+		rcu_read_unlock();
+	}
+
+	sockfd_put(sock);
+	return mm;
+}
+
 static struct cwsm *cwsm_create(struct tee_client *client,
-				struct tee_mmu *mmu,
 				const struct gp_shared_memory *memref,
-				struct gp_return *gp_ret)
+				struct gp_return *gp_ret, int client_fd)
 {
 	struct cwsm *cwsm;
-	u32 sva;
+	struct mcp_buffer_map map;
+	struct mc_ioctl_buffer buf;
 	int ret;
 
 	cwsm = kzalloc(sizeof(*cwsm), GFP_KERNEL);
 	if (!cwsm)
 		return ERR_PTR(iwp_set_ret(-ENOMEM, gp_ret));
 
-	if (mmu) {
-		cwsm->mmu = mmu;
-		tee_mmu_get(cwsm->mmu);
+	buf.va = (uintptr_t)memref->buffer;
+	buf.len = memref->size;
+	buf.flags = memref->flags;
+	if (client_is_kernel(client)) {
+		cwsm->mmu = tee_mmu_create(NULL, &buf);
 	} else {
-		struct mc_ioctl_buffer buf = {
-			.va = (uintptr_t)memref->buffer,
-			.len = memref->size,
-			.flags = memref->flags,
-		};
+		struct mm_struct *mm = get_mm_from_client_fd(client_fd);
 
-		if (client_is_kernel(client)) {
-			cwsm->mmu = tee_mmu_create(NULL, &buf);
-		} else {
-			struct mm_struct *mm = get_task_mm(current);
-
-			if (!mm) {
-				ret = -EPERM;
-				mc_dev_err(ret, "can't get mm");
-				goto err_cwsm;
-			}
-
-			/* Build MMU table for buffer */
-			cwsm->mmu = tee_mmu_create(mm, &buf);
-			mmput(mm);
-		}
-
-		if (IS_ERR(cwsm->mmu)) {
-			ret = iwp_set_ret(PTR_ERR(cwsm->mmu), gp_ret);
+		if (!mm) {
+			mc_dev_err("can't get mm from client fd %d", client_fd);
+			ret = -EPERM;
 			goto err_cwsm;
 		}
+
+		/* Build MMU table for buffer */
+		cwsm->mmu = tee_mmu_create(mm, &buf);
+		mmput(mm);
 	}
 
-	ret = iwp_register_shared_mem(cwsm->mmu, &sva, gp_ret);
+	if (IS_ERR(cwsm->mmu)) {
+		ret = iwp_set_ret(PTR_ERR(cwsm->mmu), gp_ret);
+		goto err_cwsm;
+	}
+
+	/* Initialise maps */
+	memset(&map, 0, sizeof(map));
+	tee_mmu_buffer(cwsm->mmu, &map);
+	/* FIXME Flags must be stored in MMU (needs recent trunk change) */
+	map.flags = memref->flags;
+	ret = iwp_register_shared_mem(&map, gp_ret);
 	if (ret)
 		goto err_mmu;
 
-	/* Get a token on the client */
-	client_get(client);
 	cwsm->client = client;
 	memcpy(&cwsm->memref, memref, sizeof(cwsm->memref));
-	cwsm->sva = sva;
+	cwsm->sva = map.secure_va;
 	kref_init(&cwsm->kref);
 	INIT_LIST_HEAD(&cwsm->list);
+	/* Get a token on the client */
+	client_get(client);
 	/* Add buffer to list */
 	mutex_lock(&client->quick_lock);
 	list_add_tail(&cwsm->list, &client->cwsms);
 	mutex_unlock(&client->quick_lock);
-	mc_dev_devel("created cwsm %p: client %p sva %x", cwsm, client, sva);
+	mc_dev_devel("created cwsm %p: client %p", cwsm, client);
 	/* Increment debug counter */
 	atomic_inc(&g_ctx.c_cwsms);
 	return cwsm;
 
 err_mmu:
-	tee_mmu_put(cwsm->mmu);
+	tee_mmu_delete(cwsm->mmu);
 err_cwsm:
 	kfree(cwsm);
 	return ERR_PTR(ret);
@@ -287,7 +313,7 @@ static void cwsm_release(struct kref *kref)
 	map.secure_va = cwsm->sva;
 	iwp_release_shared_mem(&map);
 	/* Release MMU */
-	tee_mmu_put(cwsm->mmu);
+	tee_mmu_delete(cwsm->mmu);
 	/* Release client token */
 	client_put(client);
 	/* Free */
@@ -357,7 +383,6 @@ u32 client_get_cwsm_sva(struct tee_client *client,
 	if (!cwsm)
 		return 0;
 
-	mc_dev_devel("found sva %x", cwsm->sva);
 	return cwsm->sva;
 }
 
@@ -385,7 +410,7 @@ end:
 /*
  * Allocate and initialize a client object
  */
-struct tee_client *client_create(bool is_from_kernel, const char *vm_id)
+struct tee_client *client_create(bool is_from_kernel)
 {
 	struct tee_client *client;
 
@@ -410,7 +435,6 @@ struct tee_client *client_create(bool is_from_kernel, const char *vm_id)
 	mutex_init(&client->cwsm_release_lock);
 	INIT_LIST_HEAD(&client->cwsms);
 	INIT_LIST_HEAD(&client->operations);
-	strlcpy(client->vm_id, vm_id, sizeof(client->vm_id));
 	/* Add client to list of clients */
 	mutex_lock(&client_ctx.clients_lock);
 	list_add_tail(&client->list, &client_ctx.clients);
@@ -428,6 +452,9 @@ static void client_release(struct kref *kref)
 	/* Client is closed, remove from closing list */
 	list_del(&client->list);
 	mc_dev_devel("freed client %p", client);
+	if (client->task)
+		put_task_struct(client->task);
+
 	kfree(client);
 	/* Decrement debug counter */
 	atomic_dec(&g_ctx.c_clients);
@@ -523,7 +550,7 @@ static void client_close_kernel_cbufs(struct tee_client *client)
 		if (!cbuf)
 			break;
 
-		tee_cbuf_put(cbuf);
+		cbuf_put(cbuf);
 	}
 }
 
@@ -547,7 +574,7 @@ static void client_release_gp_operations(struct tee_client *client)
 	mutex_lock(&client->quick_lock);
 	list_for_each_entry_safe(op, nop, &client->operations, list) {
 		/* Only cancelled operations are kzalloc'd */
-		mc_dev_devel("flush cancelled operation %p for started %llu",
+		mc_dev_devel("flush cancelled operation %p for started %u",
 			     op, op->started);
 		if (op->cancelled)
 			kfree(op);
@@ -579,14 +606,18 @@ void client_close(struct tee_client *client)
 }
 
 /*
- * Clean all structures shared with the SWd (note: incomplete but unused)
+ * The TEE is going to die, so get rid of whatever is shared with it
  */
-void client_cleanup(void)
+void clients_kill_sessions(void)
 {
 	struct tee_client *client;
 
 	mutex_lock(&client_ctx.clients_lock);
 	list_for_each_entry(client, &client_ctx.clients, list) {
+		/*
+		 * session_kill() will put the session which should get freed
+		 * and free its wsms/mmus and put any cbuf concerned
+		 */
 		mutex_lock(&client->sessions_lock);
 		while (!list_empty(&client->sessions)) {
 			struct tee_session *session;
@@ -594,7 +625,7 @@ void client_cleanup(void)
 			session = list_first_entry(&client->sessions,
 						   struct tee_session, list);
 			list_del(&session->list);
-			session_mc_cleanup_session(session);
+			session_kill(session);
 		}
 		mutex_unlock(&client->sessions_lock);
 	}
@@ -602,36 +633,46 @@ void client_cleanup(void)
 }
 
 /*
- * Get the vm id of the client passed in argument
- * @param client_t client
- * @return vm id of the client
- */
-const char *client_vm_id(struct tee_client *client)
-{
-	return client->vm_id;
-}
-
-/*
  * Open TA for given client. TA binary is provided by the daemon.
  * @param
  * @return driver error code
  */
-int client_mc_open_session(struct tee_client *client,
-			   const struct mc_uuid_t *uuid,
-			   uintptr_t tci_va, size_t tci_len, u32 *session_id)
+int client_open_session(struct tee_client *client, u32 *session_id,
+			const struct mc_uuid_t *uuid, uintptr_t tci,
+			size_t tci_len, bool is_gp_uuid,
+			struct mc_identity *identity, int client_fd)
 {
-	struct mcp_open_info info = {
-		.type = TEE_MC_UUID,
-		.uuid = uuid,
-		.tci_va = tci_va,
-		.tci_len = tci_len,
-		.user = !client_is_kernel(client),
-	};
-	int ret;
+	int err = 0;
+	u32 sid = 0;
+	struct tee_object *obj;
 
-	ret = client_mc_open_common(client, &info, session_id);
-	mc_dev_devel("session %x, exit with %d", *session_id, ret);
-	return ret;
+	/* Get secure object */
+	obj = tee_object_get(uuid, is_gp_uuid);
+	if (IS_ERR(obj)) {
+		/* Try to select secure object inside the SWd if not found */
+		if ((PTR_ERR(obj) == -ENOENT) && g_ctx.f_ta_auth)
+			obj = tee_object_select(uuid);
+
+		if (IS_ERR(obj)) {
+			err = PTR_ERR(obj);
+			goto end;
+		}
+	}
+
+	/* Open session */
+	err = client_add_session(client, obj, tci, tci_len, &sid, is_gp_uuid,
+				 identity, client_fd);
+	/* Fill in return parameter */
+	if (!err)
+		*session_id = sid;
+
+	/* Delete secure object */
+	tee_object_free(obj);
+
+end:
+
+	mc_dev_devel("session %x, exit with %d", sid, err);
+	return err;
 }
 
 /*
@@ -639,33 +680,54 @@ int client_mc_open_session(struct tee_client *client,
  * @param
  * @return driver error code
  */
-int client_mc_open_trustlet(struct tee_client *client,
-			    uintptr_t ta_va, size_t ta_len,
-			    uintptr_t tci_va, size_t tci_len, u32 *session_id)
+int client_open_trustlet(struct tee_client *client, u32 *session_id, u32 spid,
+			 uintptr_t trustlet, size_t trustlet_len,
+			 uintptr_t tci, size_t tci_len, int client_fd)
 {
-	struct mcp_open_info info = {
-		.type = TEE_MC_TA,
-		.va = ta_va,
-		.len = ta_len,
-		.tci_va = tci_va,
-		.tci_len = tci_len,
-		.user = !client_is_kernel(client),
+	struct tee_object *obj;
+	struct mc_identity identity = {
+		.login_type = LOGIN_PUBLIC,
 	};
-	int ret;
+	u32 sid = 0;
+	int err = 0;
 
-	ret = client_mc_open_common(client, &info, session_id);
-	mc_dev_devel("session %x, exit with %d", *session_id, ret);
-	return ret;
+	if (client_is_kernel(client))
+		/* Create secure object from kernel-space trustlet binary */
+		obj = tee_object_copy(trustlet, trustlet_len);
+	else
+		/* Create secure object from user-space trustlet binary */
+		obj = tee_object_read(spid, trustlet, trustlet_len);
+	if (IS_ERR(obj)) {
+		err = PTR_ERR(obj);
+		goto end;
+	}
+
+	/* Open session */
+	err = client_add_session(client, obj, tci, tci_len, &sid, false,
+				 &identity, client_fd);
+	/* Fill in return parameter */
+	if (!err)
+		*session_id = sid;
+
+	/* Delete secure object */
+	tee_object_free(obj);
+
+end:
+	mc_dev_devel("session %x, exit with %d", sid, err);
+	return err;
 }
 
 /*
  * Opens a TA and add corresponding session object to given client
  * return: driver error code
  */
-int client_mc_open_common(struct tee_client *client, struct mcp_open_info *info,
-			  u32 *session_id)
+int client_add_session(struct tee_client *client, const struct tee_object *obj,
+		       uintptr_t tci, size_t len, u32 *session_id, bool is_gp,
+		       struct mc_identity *identity, int client_fd)
 {
 	struct tee_session *session = NULL;
+	struct tee_mmu *obj_mmu = NULL;
+	struct mc_ioctl_buffer buf;
 	int ret = 0;
 
 	/*
@@ -675,18 +737,31 @@ int client_mc_open_common(struct tee_client *client, struct mcp_open_info *info,
 	 * Adding session to list must be done AFTER it is started (once we have
 	 * sid), therefore it cannot be done within session_create().
 	 */
-	session = session_create(client, NULL);
+	session = session_create(client, is_gp, identity, client_fd);
 	if (IS_ERR(session))
 		return PTR_ERR(session);
 
-	ret = session_mc_open_session(session, info);
+	/* Create blob L2 table (blob is allocated by driver, so task=NULL) */
+	buf.va = (uintptr_t)obj->data;
+	buf.len = obj->length;
+	buf.flags = MC_IO_MAP_INPUT;
+	obj_mmu = tee_mmu_create(NULL, &buf);
+	if (IS_ERR(obj_mmu)) {
+		ret = PTR_ERR(obj_mmu);
+		goto err;
+	}
+
+	/* Open session */
+	ret = session_open(session, obj, obj_mmu, tci, len, client_fd);
+	/* Blob table no more needed in any case */
+	tee_mmu_delete(obj_mmu);
 	if (ret)
 		goto err;
 
 	mutex_lock(&client->sessions_lock);
 	/* Add session to client */
 	list_add_tail(&session->list, &client->sessions);
-	/* Set session ID returned by SWd */
+	/* Set sid returned by SWd */
 	*session_id = session->mcp_session.sid;
 	mutex_unlock(&client->sessions_lock);
 
@@ -700,6 +775,65 @@ err:
 	} else if (ret) {
 		session_put(session);
 	}
+
+	return ret;
+}
+
+/*
+ * Opens a TA and add corresponding session object to given client
+ * return: driver error code
+ */
+static int client_add_gp_session(struct tee_client *client,
+				 const struct tee_object *obj,
+				 u32 *session_id,
+				 struct gp_operation *operation,
+				 struct mc_identity *identity,
+				 int client_fd, struct gp_return *gp_ret)
+{
+	struct tee_session *session = NULL;
+	struct tee_mmu *obj_mmu = NULL;
+	struct mc_ioctl_buffer buf;
+	int ret = 0;
+
+	/*
+	 * Create session object with temp sid=0 BEFORE session is started,
+	 * otherwise if a GP TA is started and NWd session object allocation
+	 * fails, we cannot handle the potentially delayed GP closing.
+	 * Adding session to list must be done AFTER it is started (once we have
+	 * sid), therefore it cannot be done within session_create().
+	 */
+	session = session_create(client, true, identity, client_fd);
+	if (IS_ERR(session))
+		return iwp_set_ret(PTR_ERR(session), gp_ret);
+
+	/* Create blob L2 table (blob is allocated by driver, so task=NULL) */
+	buf.va = (uintptr_t)obj->data;
+	buf.len = obj->length;
+	buf.flags = MC_IO_MAP_INPUT;
+	obj_mmu = tee_mmu_create(NULL, &buf);
+	if (IS_ERR(obj_mmu)) {
+		ret = PTR_ERR(obj_mmu);
+		goto end;
+	}
+
+	/* Open session */
+	ret = session_gp_open_session(session, obj, obj_mmu, operation, gp_ret,
+				      client_fd);
+	/* Blob table no more needed in any case */
+	tee_mmu_delete(obj_mmu);
+	if (ret)
+		goto end;
+
+	mutex_lock(&client->sessions_lock);
+	/* Add session to client */
+	list_add_tail(&session->list, &client->sessions);
+	mutex_unlock(&client->sessions_lock);
+	/* Set sid returned by SWd */
+	*session_id = session->iwp_session.sid;
+
+end:
+	if (ret)
+		session_put(session);
 
 	return ret;
 }
@@ -756,7 +890,7 @@ static struct tee_session *client_get_session(struct tee_client *client,
 
 	mutex_unlock(&client->sessions_lock);
 	if (!session)
-		mc_dev_err(-ENXIO, "session %x not found", session_id);
+		mc_dev_err("session %x not found", session_id);
 
 	return session;
 }
@@ -776,7 +910,7 @@ int client_notify_session(struct tee_client *client, u32 session_id)
 		return -ENXIO;
 
 	/* Send command to SWd */
-	ret = session_mc_notify(session);
+	ret = session_notify_swd(session);
 	/* Put session */
 	session_put(session);
 	mc_dev_devel("session %x, exit with %d", session_id, ret);
@@ -788,7 +922,7 @@ int client_notify_session(struct tee_client *client, u32 session_id)
  * @return driver error code
  */
 int client_waitnotif_session(struct tee_client *client, u32 session_id,
-			     s32 timeout)
+			     s32 timeout, bool silent_expiry)
 {
 	struct tee_session *session;
 	int ret;
@@ -798,7 +932,7 @@ int client_waitnotif_session(struct tee_client *client, u32 session_id,
 	if (!session)
 		return -ENXIO;
 
-	ret = session_mc_wait(session, timeout);
+	ret = session_waitnotif(session, timeout, silent_expiry);
 	/* Put session */
 	session_put(session);
 	mc_dev_devel("session %x, exit with %d", session_id, ret);
@@ -809,10 +943,9 @@ int client_waitnotif_session(struct tee_client *client, u32 session_id,
  * Read session exit/termination code
  */
 int client_get_session_exitcode(struct tee_client *client, u32 session_id,
-				s32 *err)
+				s32 *exit_code)
 {
 	struct tee_session *session;
-	int ret;
 
 	/* Find/get session */
 	session = client_get_session(client, session_id);
@@ -820,16 +953,16 @@ int client_get_session_exitcode(struct tee_client *client, u32 session_id,
 		return -ENXIO;
 
 	/* Retrieve error */
-	ret = session_mc_get_err(session, err);
+	*exit_code = session_exitcode(session);
 	/* Put session */
 	session_put(session);
-	mc_dev_devel("session %x, exit code %d", session_id, *err);
-	return ret;
+	mc_dev_devel("session %x, exit code %d", session_id, *exit_code);
+	return 0;
 }
 
 /* Share a buffer with given TA in SWd */
-int client_mc_map(struct tee_client *client, u32 session_id,
-		  struct tee_mmu *mmu, struct mc_ioctl_buffer *buf)
+int client_map_session_wsms(struct tee_client *client, u32 session_id,
+			    struct mc_ioctl_buffer *bufs, int client_fd)
 {
 	struct tee_session *session;
 	int ret;
@@ -840,7 +973,7 @@ int client_mc_map(struct tee_client *client, u32 session_id,
 		return -ENXIO;
 
 	/* Add buffer to the session */
-	ret = session_mc_map(session, mmu, buf);
+	ret = session_map(session, bufs, client_fd);
 	/* Put session */
 	session_put(session);
 	mc_dev_devel("session %x, exit with %d", session_id, ret);
@@ -848,8 +981,8 @@ int client_mc_map(struct tee_client *client, u32 session_id,
 }
 
 /* Stop sharing a buffer with SWd */
-int client_mc_unmap(struct tee_client *client, u32 session_id,
-		    const struct mc_ioctl_buffer *buf)
+int client_unmap_session_wsms(struct tee_client *client, u32 session_id,
+			      const struct mc_ioctl_buffer *bufs)
 {
 	struct tee_session *session;
 	int ret;
@@ -860,7 +993,7 @@ int client_mc_unmap(struct tee_client *client, u32 session_id,
 		return -ENXIO;
 
 	/* Remove buffer from session */
-	ret = session_mc_unmap(session, buf);
+	ret = session_unmap(session, bufs);
 	/* Put session */
 	session_put(session);
 	mc_dev_devel("session %x, exit with %d", session_id, ret);
@@ -874,30 +1007,18 @@ int client_gp_initialize_context(struct tee_client *client,
 }
 
 int client_gp_register_shared_mem(struct tee_client *client,
-				  struct tee_mmu *mmu, u32 *sva,
 				  const struct gp_shared_memory *memref,
-				  struct gp_return *gp_ret)
+				  struct gp_return *gp_ret, int client_fd)
 {
-	struct cwsm *cwsm = NULL;
+	struct cwsm *cwsm;
 
-	if (memref->size > BUFFER_LENGTH_MAX) {
-		mc_dev_err(-EINVAL, "buffer size %llu too big", memref->size);
-		return -EINVAL;
+	/* cwsm_find automatically takes a reference */
+	cwsm = cwsm_find(client, memref);
+	if (!cwsm) {
+		cwsm = cwsm_create(client, memref, gp_ret, client_fd);
+		if (IS_ERR(cwsm))
+			return iwp_set_ret(PTR_ERR(cwsm), gp_ret);
 	}
-
-	if (!mmu)
-		/* cwsm_find automatically takes a reference */
-		cwsm = cwsm_find(client, memref);
-
-	if (!cwsm)
-		cwsm = cwsm_create(client, mmu, memref, gp_ret);
-
-	/* gp_ret set by callee */
-	if (IS_ERR(cwsm))
-		return PTR_ERR(cwsm);
-
-	if (sva)
-		*sva = cwsm->sva;
 
 	return iwp_set_ret(0, gp_ret);
 }
@@ -924,81 +1045,41 @@ end:
 }
 
 /*
- * Opens a TA and add corresponding session object to given client
- * return: driver error code
+ * Open TA for given client. TA binary is provided by the daemon.
+ * @param
+ * @return driver error code
  */
-int client_gp_open_session(struct tee_client *client,
+int client_gp_open_session(struct tee_client *client, u32 *session_id,
 			   const struct mc_uuid_t *uuid,
 			   struct gp_operation *operation,
-			   const struct mc_identity *identity,
-			   struct gp_return *gp_ret,
-			   u32 *session_id)
+			   struct mc_identity *identity,
+			   struct gp_return *gp_ret, int client_fd)
 {
-	struct tee_session *session = NULL;
+	struct tee_object *obj;
 	int ret = 0;
 
-	/*
-	 * Create session object with temp sid=0 BEFORE session is started,
-	 * otherwise if a GP TA is started and NWd session object allocation
-	 * fails, we cannot handle the potentially delayed GP closing.
-	 * Adding session to list must be done AFTER it is started (once we have
-	 * sid), therefore it cannot be done within session_create().
-	 */
-	session = session_create(client, identity);
-	if (IS_ERR(session))
-		return iwp_set_ret(PTR_ERR(session), gp_ret);
+	/* Get secure object */
+	obj = tee_object_get(uuid, true);
+	if (IS_ERR(obj)) {
+		/* Try to select secure object inside the SWd if not found */
+		if ((PTR_ERR(obj) == -ENOENT) && g_ctx.f_ta_auth)
+			obj = tee_object_select(uuid);
+
+		if (IS_ERR(obj)) {
+			ret = PTR_ERR(obj);
+			goto end;
+		}
+	}
 
 	/* Open session */
-	ret = session_gp_open_session(session, uuid, operation, gp_ret);
-	if (ret)
-		goto end;
+	ret = client_add_gp_session(client, obj, session_id, operation,
+				    identity, client_fd, gp_ret);
 
-	mutex_lock(&client->sessions_lock);
-	/* Add session to client */
-	list_add_tail(&session->list, &client->sessions);
-	mutex_unlock(&client->sessions_lock);
-	/* Set sid returned by SWd */
-	*session_id = session->iwp_session.sid;
+	/* Delete secure object */
+	tee_object_free(obj);
 
 end:
-	if (ret)
-		session_put(session);
-
 	mc_dev_devel("gp session %x, exit with %d", *session_id, ret);
-	return ret;
-}
-
-int client_gp_open_session_domu(struct tee_client *client,
-				const struct mc_uuid_t *uuid, u64 started,
-				struct interworld_session *iws,
-				struct tee_mmu **mmus,
-				struct gp_return *gp_ret)
-{
-	struct tee_session *session = NULL;
-	int ret = 0;
-
-	/* Don't pass NULL for identity as it would make a MC session */
-	session = session_create(client, ERR_PTR(-ENOENT));
-	if (IS_ERR(session))
-		return iwp_set_ret(PTR_ERR(session), gp_ret);
-
-	/* Open session */
-	ret = session_gp_open_session_domu(session, uuid, started, iws,
-					   mmus, gp_ret);
-	if (ret)
-		goto end;
-
-	mutex_lock(&client->sessions_lock);
-	/* Add session to client */
-	list_add_tail(&session->list, &client->sessions);
-	mutex_unlock(&client->sessions_lock);
-
-end:
-	if (ret)
-		session_put(session);
-
-	mc_dev_devel("gp session %x, exit with %d",
-		     session->iwp_session.sid, ret);
 	return ret;
 }
 
@@ -1036,7 +1117,7 @@ int client_gp_close_session(struct tee_client *client, u32 session_id)
 int client_gp_invoke_command(struct tee_client *client, u32 session_id,
 			     u32 command_id,
 			     struct gp_operation *operation,
-			     struct gp_return *gp_ret)
+			     struct gp_return *gp_ret, int client_fd)
 {
 	struct tee_session *session;
 	int ret = 0;
@@ -1045,37 +1126,18 @@ int client_gp_invoke_command(struct tee_client *client, u32 session_id,
 	if (!session)
 		return iwp_set_ret(-ENXIO, gp_ret);
 
-	ret = session_gp_invoke_command(session, command_id, operation, gp_ret);
+	ret = session_gp_invoke_command(session, command_id, operation, gp_ret,
+					client_fd);
 
 	/* Put session */
 	session_put(session);
 	return ret;
 }
 
-int client_gp_invoke_command_domu(struct tee_client *client, u32 session_id,
-				  u64 started, struct interworld_session *iws,
-				  struct tee_mmu **mmus,
-				  struct gp_return *gp_ret)
-{
-	struct tee_session *session;
-	int ret = 0;
-
-	session = client_get_session(client, session_id);
-	if (!session)
-		return iwp_set_ret(-ENXIO, gp_ret);
-
-	ret = session_gp_invoke_command_domu(session, started, iws, mmus,
-					     gp_ret);
-
-	/* Put session */
-	session_put(session);
-	return ret;
-}
-
-void client_gp_request_cancellation(struct tee_client *client, u64 started)
+void client_gp_request_cancellation(struct tee_client *client, u32 started)
 {
 	struct client_gp_operation *op;
-	u64 slot;
+	u32 slot;
 	bool found = false;
 
 	/* Look for operation */
@@ -1084,9 +1146,8 @@ void client_gp_request_cancellation(struct tee_client *client, u64 started)
 		if (op->started == started) {
 			slot = op->slot;
 			found = true;
-			mc_dev_devel(
-				"found no operation cancel for started %llu",
-				started);
+			mc_dev_devel("found to operation cancel for started %u",
+				     started);
 			break;
 		}
 
@@ -1097,9 +1158,8 @@ void client_gp_request_cancellation(struct tee_client *client, u64 started)
 			op->started = started;
 			op->cancelled = true;
 			list_add_tail(&op->list, &client->operations);
-			mc_dev_devel(
-				"add cancelled operation %p for started %llu",
-				op, op->started);
+			mc_dev_devel("add cancelled operation %p for started %u"
+				, op, op->started);
 		}
 	}
 	mutex_unlock(&client->quick_lock);
@@ -1125,7 +1185,7 @@ static void cbuf_vm_close(struct vm_area_struct *vmarea)
 {
 	struct cbuf *cbuf = vmarea->vm_private_data;
 
-	tee_cbuf_put(cbuf);
+	cbuf_put(cbuf);
 }
 
 static const struct vm_operations_struct cbuf_vm_ops = {
@@ -1139,28 +1199,20 @@ static const struct vm_operations_struct cbuf_vm_ops = {
 int client_cbuf_create(struct tee_client *client, u32 len, uintptr_t *addr,
 		       struct vm_area_struct *vmarea)
 {
+	int err = 0;
 	struct cbuf *cbuf = NULL;
 	unsigned int order;
-	int ret = 0;
 
 	if (!client)
 		return -EINVAL;
 
-	if (!len) {
-		mc_dev_err(-EINVAL, "buffer size 0 not supported");
+	if (!len || len > BUFFER_LENGTH_MAX)
 		return -EINVAL;
-	}
-
-	if (len > BUFFER_LENGTH_MAX) {
-		mc_dev_err(-EINVAL, "buffer size %u too big", len);
-		return -EINVAL;
-	}
 
 	order = get_order(len);
 	if (order > MAX_ORDER) {
-		ret = -ENOMEM;
-		mc_dev_err(ret, "Buffer size too large");
-		return ret;
+		mc_dev_err("Buffer size too large");
+		return -ENOMEM;
 	}
 
 	/* Allocate buffer descriptor structure */
@@ -1181,13 +1233,13 @@ int client_cbuf_create(struct tee_client *client, u32 len, uintptr_t *addr,
 
 	/* Map to user space if applicable */
 	if (!client_is_kernel(client)) {
-		ret = cbuf_map(vmarea, cbuf->addr, len, &cbuf->uaddr);
-		if (ret) {
+		err = cbuf_map(vmarea, cbuf->addr, len, &cbuf->uaddr);
+		if (err) {
 			free_pages(cbuf->addr, order);
 			kfree(cbuf);
 			/* Decrement debug counter */
 			atomic_dec(&g_ctx.c_cbufs);
-			return ret;
+			return err;
 		}
 	}
 
@@ -1216,11 +1268,9 @@ int client_cbuf_create(struct tee_client *client, u32 len, uintptr_t *addr,
 	mutex_lock(&client->cbufs_lock);
 	list_add_tail(&cbuf->list, &client->cbufs);
 	mutex_unlock(&client->cbufs_lock);
-	mc_dev_devel(
-	"created cbuf %p: client %p addr %lx uaddr %lx len %u phys 0x%llx",
-		     cbuf, client, cbuf->addr, cbuf->uaddr, cbuf->len,
-		     (u64)cbuf->phys);
-	return ret;
+	mc_dev_devel("created cbuf %p: client %p addr %lx uaddr %lx len %u",
+		     cbuf, client, cbuf->addr, cbuf->uaddr, cbuf->len);
+	return err;
 }
 
 /*
@@ -1271,16 +1321,16 @@ int client_cbuf_free(struct tee_client *client, uintptr_t addr)
 	struct cbuf *cbuf = cbuf_get_by_addr(client, addr);
 
 	if (!cbuf) {
-		mc_dev_err(-EINVAL, "cbuf %lu not found", addr);
+		mc_dev_err("cbuf %lu not found", addr);
 		return -EINVAL;
 	}
 
 	/* Release reference taken by cbuf_get_by_addr */
-	tee_cbuf_put(cbuf);
+	cbuf_put(cbuf);
 	mutex_lock(&client->cbufs_lock);
 	cbuf->api_freed = true;
 	mutex_unlock(&client->cbufs_lock);
-	tee_cbuf_put(cbuf);
+	cbuf_put(cbuf);
 	return 0;
 }
 
@@ -1299,12 +1349,12 @@ bool client_gp_operation_add(struct tee_client *client,
 
 	if (found) {
 		list_del(&op->list);
-		mc_dev_devel("found cancelled operation %p for started %llu",
+		mc_dev_devel("found cancelled operation %p for started %u",
 			     op, op->started);
 		kfree(op);
 	} else {
 		list_add_tail(&operation->list, &client->operations);
-		mc_dev_devel("add operation for started %llu",
+		mc_dev_devel("add operation for started %u",
 			     operation->started);
 	}
 	mutex_unlock(&client->quick_lock);
@@ -1321,7 +1371,7 @@ void client_gp_operation_remove(struct tee_client *client,
 
 struct tee_mmu *client_mmu_create(struct tee_client *client,
 				  const struct mc_ioctl_buffer *buf_in,
-				  struct cbuf **cbuf_p)
+				  struct cbuf **cbuf_p, int client_fd)
 {
 	/* Check if buffer is contained in a cbuf */
 	struct mc_ioctl_buffer buf = *buf_in;
@@ -1342,14 +1392,14 @@ struct tee_mmu *client_mmu_create(struct tee_client *client,
 		}
 
 		if ((offset + buf.len) > cbuf->len) {
-			mc_dev_err(-EINVAL, "crosses cbuf boundary");
-			tee_cbuf_put(cbuf);
+			mc_dev_err("crosses cbuf boundary");
+			cbuf_put(cbuf);
 			return ERR_PTR(-EINVAL);
 		}
 	} else if (!client_is_kernel(client)) {
-		mm = get_task_mm(current);
+		mm = get_mm_from_client_fd(client_fd);
 		if (!mm) {
-			mc_dev_err(-EPERM, "can't get mm");
+			mc_dev_err("can't get mm from client fd %d", client_fd);
 			return ERR_PTR(-EPERM);
 		}
 	}
@@ -1360,9 +1410,17 @@ struct tee_mmu *client_mmu_create(struct tee_client *client,
 		mmput(mm);
 
 	if (IS_ERR_OR_NULL(mmu) && cbuf)
-		tee_cbuf_put(cbuf);
+		cbuf_put(cbuf);
 
 	return mmu;
+}
+
+void client_mmu_free(struct tee_client *client, uintptr_t va,
+		     struct tee_mmu *mmu, struct cbuf *cbuf)
+{
+	tee_mmu_delete(mmu);
+	if (cbuf)
+		cbuf_put(cbuf);
 }
 
 void client_init(void)
