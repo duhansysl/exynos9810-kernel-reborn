@@ -118,3 +118,13 @@ all.config
 
 # fetched Android config fragments
 kernel/configs/android-*.cfg
+
+# DTBO and reverse
+
+arch/arm64/boot/dts/samsung/*.dtbo
+arch/arm64/boot/dts/samsung/*.reverse.dts
+
+# Misc 
+
+scripts/crypto/__pycache__/
+scripts/fmp/__pycache__/
