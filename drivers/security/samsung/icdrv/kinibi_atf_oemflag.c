@@ -36,16 +36,10 @@ int set_tamper_fuse(enum oemflag_id name)
 
 	pr_info("[oemflag][icdrv] MTK ATF cmd\n");
 	ret = run_cmd_mtk_atf(MTK_SIP_OEM_FLAG_WRITE, name);
-
 	return (ret == 1) ? 0 : ret;
 }
 
-int get_tamper_fuse(enum oemflag_id name)
+int get_tamper_fuse(enum oemflag_id flag)
 {
-	int ret;
-
-	pr_info("[oemflag]MTK ATF cmd\n");
-	ret = run_cmd_mtk_atf(MTK_SIP_OEM_FLAG_READ, name);
-
-	return ret;
+	return 0;
 }
