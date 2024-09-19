@@ -2081,4 +2081,3 @@ int exynos9810_secgpio_get_nr_gpio(void)
 	return nr_gpio;
 }
 #endif /* CONFIG_SEC_GPIO_DVS */
-
