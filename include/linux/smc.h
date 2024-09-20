@@ -68,6 +68,13 @@
 #define MC_FC_DRM_SET_CFW_PROT		(0x10000000)
 #define SMC_SRPMB_WSM			(0x82003811)
 
+/* PPMPU */
+#define SMC_PPMPU_PR_VIOLATION		(0x820020DE)
+#define SMC_PPMPU_GET_PROT		(0x820020DF)
+
+#define MC_FC_DRM_SET_CFW_PROT		(0x10000000)
+#define SMC_SRPMB_WSM			(0x82003811)
+
 /* Command ID for seccam */
 #define SMC_SECCAM_SETENV               (0x82002130)
 #define SMC_SECCAM_INIT                 (0x82002131)

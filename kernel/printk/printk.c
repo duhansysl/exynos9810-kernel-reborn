@@ -563,13 +563,13 @@ static size_t print_process(const struct printk_log *msg, char *buf)
 #endif
 module_param_named(process, printk_process, bool, S_IRUGO | S_IWUSR);
 
-#ifdef CONFIG_SEC_DEBUG_AUTO_COMMENT
+//#ifdef CONFIG_SEC_DEBUG_AUTO_COMMENT
 static void (*func_hook_auto_comm)(int type, const char *buf, size_t size);
 void register_set_auto_comm_buf(void (*func)(int type, const char *buf, size_t size))
 {
 	func_hook_auto_comm = func;
 }
-#endif
+//#endif
 
 #ifdef CONFIG_SEC_DEBUG_INIT_LOG
 static void (*func_hook_init_log)(const char *buf, size_t size);

@@ -173,7 +173,7 @@ static void abox_debug_string_update_workfunc(struct work_struct *wk)
 
 buff_done:
 	pr_info("%s: %s\n", __func__, p_debug_data->dbg_str_buf);
-	sec_debug_set_extra_info_aud(p_debug_data->dbg_str_buf);
+	sec_debug_set_extra_info_rvd1(p_debug_data->dbg_str_buf);
 
 	kfree(p_debug_data->dbg_str_buf);
 	p_debug_data->dbg_str_buf = NULL;
