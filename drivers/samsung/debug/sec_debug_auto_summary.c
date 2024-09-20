@@ -185,7 +185,8 @@ static void sec_auto_summary_init_print_buf(unsigned long base)
 	auto_summary_info->pa_text = virt_to_phys(_text);
 	auto_summary_info->pa_start_rodata = virt_to_phys(__start_rodata);
 
-	auto_summary_info->edata.data[0] = virt_to_phys(entry_dbg_saved_data);
+	//auto_summary_info->edata.data[0] = virt_to_phys(entry_dbg_saved_data);
+	auto_summary_info->edata.data[0] = virt_to_phys(__start_rodata);
 
 	register_set_auto_comm_buf(sec_debug_hook_auto_comm);
 	register_set_auto_comm_lastfreq(sec_debug_hook_auto_comm_lastfreq);
