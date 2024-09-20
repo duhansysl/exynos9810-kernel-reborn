@@ -35,7 +35,7 @@
 
 #include "exynos-pcie-iommu.h"
 
-#ifdef CONFIG_SEC_DEBUG_EXTRA_INFO
+#ifdef CONFIG_SEC_DEBUG_AUTO_SUMMARY
 #include <linux/sec_debug.h>
 #endif
 
@@ -345,8 +345,9 @@ static int show_fault_information(struct sysmmu_drvdata *drvdata,
 	of_property_read_string(drvdata->sysmmu->of_node,
 					"port-name", &port_name);
 
-	pr_crit("----------------------------------------------------------\n");
-	pr_crit("From [%s], SysMMU %s %s at %#010lx (page table @ %pa)\n",
+	pr_auto_once(4);
+	pr_auto(ASL4, "----------------------------------------------------------\n");
+	pr_auto(ASL4, "From [%s], SysMMU %s %s at %#010lx (page table @ %pa)\n",
 		port_name ? port_name : dev_name(drvdata->sysmmu),
 		(flags & IOMMU_FAULT_WRITE) ? "WRITE" : "READ",
 		sysmmu_fault_name[fault_id], fault_addr, &pgtable);
@@ -360,41 +361,41 @@ static int show_fault_information(struct sysmmu_drvdata *drvdata,
 #endif
 
 	if (fault_id == SYSMMU_FAULT_UNKNOWN) {
-		pr_crit("The fault is not caused by this System MMU.\n");
-		pr_crit("Please check IRQ and SFR base address.\n");
+		pr_auto(ASL4, "The fault is not caused by this System MMU.\n");
+		pr_auto(ASL4, "Please check IRQ and SFR base address.\n");
 		goto finish;
 	}
 
-	pr_crit("AxID: %#x, AxLEN: %#x\n", info & 0xFFFF, (info >> 16) & 0xF);
+	pr_auto(ASL4, "AxID: %#x, AxLEN: %#x\n", info & 0xFFFF, (info >> 16) & 0xF);
 
 	if (pgtable != drvdata->pgtable)
-		pr_crit("Page table base of driver: %pa\n",
+		pr_auto(ASL4, "Page table base of driver: %pa\n",
 			&drvdata->pgtable);
 
 	if (fault_id == SYSMMU_FAULT_PTW_ACCESS)
-		pr_crit("System MMU has failed to access page table\n");
+		pr_auto(ASL4, "System MMU has failed to access page table\n");
 
 	if (!pfn_valid(pgtable >> PAGE_SHIFT)) {
-		pr_crit("Page table base is not in a valid memory region\n");
+		pr_auto(ASL4, "Page table base is not in a valid memory region\n");
 	} else {
 		sysmmu_pte_t *ent;
 
 		ent = section_entry(phys_to_virt(pgtable), fault_addr);
-		pr_crit("Lv1 entry: %#010x\n", *ent);
+		pr_auto(ASL4, "Lv1 entry: %#010x\n", *ent);
 
 		if (lv1ent_page(ent)) {
 			u64 sft_ent_addr, sft_fault_addr;
 
 			ent = page_entry(ent, fault_addr);
-			pr_crit("Lv2 entry: %#010x\n", *ent);
+			pr_auto(ASL4, "Lv2 entry: %#010x\n", *ent);
 
 			sft_ent_addr = (*ent) >> 8;
 			sft_fault_addr = fault_addr >> 12;
 
 			if (sft_ent_addr == sft_fault_addr) {
-				pr_crit("ent(%#llx) == faddr(%#llx)...\n",
+				pr_auto(ASL4, "ent(%#llx) == faddr(%#llx)...\n",
 						sft_ent_addr, sft_fault_addr);
-				pr_crit("Try to IGNORE Page fault panic...\n");
+				pr_auto(ASL4, "Try to IGNORE Page fault panic...\n");
 				ret = SYSMMU_NO_PANIC;
 				wrong_pf_cnt++;
 			}
@@ -403,7 +404,8 @@ static int show_fault_information(struct sysmmu_drvdata *drvdata,
 
 	dump_sysmmu_tlb_port(drvdata);
 finish:
-	pr_crit("----------------------------------------------------------\n");
+	pr_auto(ASL4, "----------------------------------------------------------\n");
+	pr_auto_disable(4);
 
 	return ret;
 }
@@ -943,6 +945,8 @@ int pcie_iommu_map(unsigned long iova, phys_addr_t paddr, size_t size, int prot)
 		paddr += pgsize;
 		size -= pgsize;
 	}
+	/* TLB invalidation is performed by IOVMM */
+	exynos_sysmmu_tlb_invalidate(iova, size);
 	spin_unlock_irqrestore(&domain->pgtablelock, flags);
 
 	/* unroll mapping in case something went wrong */
@@ -1007,7 +1011,6 @@ size_t pcie_iommu_unmap(unsigned long iova, size_t size)
 
 		alloc_counter--;
 		unmapped_page = exynos_iommu_unmap(iova, pgsize);
-		exynos_sysmmu_tlb_invalidate(iova, pgsize);
 #ifdef CONFIG_PCIE_IOMMU_HISTORY_LOG
 		add_history_buff(&pcie_unmap_history, iova, orig_iova,
 				size, orig_size);
@@ -1022,6 +1025,8 @@ size_t pcie_iommu_unmap(unsigned long iova, size_t size)
 		unmapped += unmapped_page;
 	}
 
+	/* TLB invalidation is performed by IOVMM */
+	exynos_sysmmu_tlb_invalidate(iova, size);
 	spin_unlock_irqrestore(&domain->pgtablelock, flags);
 
 	pr_debug("UNMAPPED : req 0x%lx(0x%lx) size 0x%zx(0x%zx)\n",
