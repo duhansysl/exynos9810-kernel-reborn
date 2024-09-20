@@ -24,7 +24,7 @@
 #include <linux/module.h>
 #include <linux/smp.h>
 #include <linux/sched.h>
-#include <linux/sec_sysfs.h>
+#include <linux/sec_class.h>
 #include <linux/sec_ext.h>
 #include <clocksource/arm_arch_timer.h>
 #include <linux/slab.h>

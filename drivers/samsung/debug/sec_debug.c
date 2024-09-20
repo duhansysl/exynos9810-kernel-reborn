@@ -19,7 +19,7 @@
 #include <linux/irq.h>
 #include <linux/tick.h>
 #include <linux/file.h>
-#include <linux/sec_sysfs.h>
+#include <linux/sec_class.h>
 #include <linux/sec_ext.h>
 #include <linux/sec_debug.h>
 #include <linux/sec_debug_hard_reset_hook.h>

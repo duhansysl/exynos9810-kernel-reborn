@@ -15,7 +15,7 @@
 #include <linux/module.h>
 #include <linux/device.h>
 #include <linux/sec_debug.h>
-#include <linux/sec_sysfs.h>
+#include <linux/sec_class.h>
 #include <linux/soc/samsung/exynos-soc.h>
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
