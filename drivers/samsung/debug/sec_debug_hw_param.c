@@ -16,7 +16,7 @@
 #include <linux/device.h>
 #include <linux/sec_debug.h>
 #include <linux/sec_ext.h>
-#include <linux/sec_class.h>
+#include <linux/sec_sysfs.h>
 #include <linux/uaccess.h>
 #include <linux/soc/samsung/exynos-soc.h>
 #include <soc/samsung/exynos-pm.h>
@@ -208,55 +208,36 @@ static ssize_t sec_hw_param_ap_info_show(struct kobject *kobj,
 	int reverse_id_0 = 0;
 	u32 tmp = 0;
 	char lot_id[LOT_STRING_LEN + 1];
-	char val[32] = {0, };
 
 	reverse_id_0 = chipid_reverse_value(exynos_soc_info.lot_id, 32);
 	tmp = (reverse_id_0 >> 11) & 0x1FFFFF;
 	chipid_dec_to_36(tmp, lot_id);
 
 	info_size += snprintf(buf, DATA_SIZE, "\"HW_REV\":\"%d\",", sec_hw_rev);
-
-	memset(val, 0, 32);
-	get_bk_item_val_as_string("RSTCNT", val);
 	info_size +=
 	    snprintf((char *)(buf + info_size), DATA_SIZE - info_size,
-				"\"RSTCNT\":\"%s\",", val);
-
-	memset(val, 0, 32);
-	get_bk_item_val_as_string("CHI", val);
-	info_size +=
-		snprintf((char *)(buf + info_size), DATA_SIZE - info_size,
-				"\"CHIPID_FAIL\":\"%s\",", val);
-
-	memset(val, 0, 32);
-	get_bk_item_val_as_string("LPI", val);
+		     "\"BIN\":\"%c\",", warranty);
 	info_size +=
 	    snprintf((char *)(buf + info_size), DATA_SIZE - info_size,
-				"\"LPI_TIMEOUT\":\"%s\",", val);
-
-	memset(val, 0, 32);
-	get_bk_item_val_as_string("CDI", val);
+		     "\"ASB\":\"%d\",", id_get_asb_ver());
 	info_size +=
 	    snprintf((char *)(buf + info_size), DATA_SIZE - info_size,
-				"\"CODE_DIFF\":\"%s\",", val);
-
-	memset(val, 0, 32);
-	get_bk_item_val_as_string("BIN", val);
+		     "\"PSITE\":\"%d\",", id_get_product_line());
 	info_size +=
 	    snprintf((char *)(buf + info_size), DATA_SIZE - info_size,
-				"\"BIN\":\"%s\",", val);
+		     "\"LOT_ID\":\"%s\",", lot_id);
 	info_size +=
 	    snprintf((char *)(buf + info_size), DATA_SIZE - info_size,
-				"\"ASB\":\"%d\",", id_get_asb_ver());
+		     "\"CHIPID_FAIL\":\"%d\",", chipid_fail_cnt);
 	info_size +=
 	    snprintf((char *)(buf + info_size), DATA_SIZE - info_size,
-				"\"PSITE\":\"%d\",", id_get_product_line());
+		     "\"LPI_TIMEOUT\":\"%d\",", lpi_timeout_cnt);
 	info_size +=
 	    snprintf((char *)(buf + info_size), DATA_SIZE - info_size,
-				"\"LOT_ID\":\"%s\",", lot_id);
+		     "\"CACHE_ERR\":\"%d\",", cache_err_cnt);
 	info_size +=
 	    snprintf((char *)(buf + info_size), DATA_SIZE - info_size,
-				"\"CACHE_ERR\":\"%d\",", cache_err_cnt);
+		     "\"CODE_DIFF\":\"%d\",", codediff_cnt);
 #if defined(CONFIG_SAMSUNG_VST_CAL)
 	info_size +=
 	    snprintf((char *)(buf + info_size), DATA_SIZE - info_size,
@@ -270,28 +251,13 @@ static ssize_t sec_hw_param_ap_info_show(struct kobject *kobj,
 		     "\"ASV_BIG\":\"%d\",", asv_ids_information(bg));
 	info_size +=
 	    snprintf((char *)(buf + info_size), DATA_SIZE - info_size,
-				"\"ASV_MID\":\"%d\",", asv_ids_information(mg));
-	info_size +=
-		snprintf((char *)(buf + info_size), DATA_SIZE - info_size,
 		     "\"ASV_LIT\":\"%d\",", asv_ids_information(lg));
 	info_size +=
 	    snprintf((char *)(buf + info_size), DATA_SIZE - info_size,
-				"\"ASV_G3D\":\"%d\",", asv_ids_information(g3dg));
-	info_size +=
-		snprintf((char *)(buf + info_size), DATA_SIZE - info_size,
 		     "\"ASV_MIF\":\"%d\",", asv_ids_information(mifg));
 	info_size +=
 	    snprintf((char *)(buf + info_size), DATA_SIZE - info_size,
-		     "\"IDS_BIG\":\"%d\",", asv_ids_information(bids));
-	info_size +=
-		snprintf((char *)(buf + info_size), DATA_SIZE - info_size,
-				"\"IDS_MID\":\"%d\",", asv_ids_information(mids));
-	info_size +=
-		snprintf((char *)(buf + info_size), DATA_SIZE - info_size,
-				"\"IDS_LIT\":\"%d\",", asv_ids_information(lids));
-	info_size +=
-		snprintf((char *)(buf + info_size), DATA_SIZE - info_size,
-				"\"IDS_G3D\":\"%d\",", asv_ids_information(gids));
+		     "\"IDS_BIG\":\"%d\"", asv_ids_information(bids));
 
 	return info_size;
 }
@@ -319,56 +285,76 @@ static ssize_t sec_hw_param_ddr_info_show(struct kobject *kobj,
 }
 
 static ssize_t sec_hw_param_extra_info_show(struct kobject *kobj,
-		struct kobj_attribute *attr, char *buf)
+					    struct kobj_attribute *attr, char *buf)
 {
 	ssize_t info_size = 0;
 
-	sec_debug_store_extra_info_A(buf);
-	info_size = strlen(buf);
+	if (reset_reason == RR_K || reset_reason == RR_D || 
+		reset_reason == RR_P || reset_reason == RR_S) {
+		sec_debug_store_extra_info_A();
+		strncpy(buf, (char *)SEC_DEBUG_EXTRA_INFO_VA, SZ_1K);
+		info_size = strlen(buf);
+	}
 
 	return info_size;
 }
 
 static ssize_t sec_hw_param_extrb_info_show(struct kobject *kobj,
-		struct kobj_attribute *attr, char *buf)
+					    struct kobj_attribute *attr, char *buf)
 {
 	ssize_t info_size = 0;
 
-	sec_debug_store_extra_info_B(buf);
-	info_size = strlen(buf);
+	if (reset_reason == RR_K || reset_reason == RR_D || 
+		reset_reason == RR_P || reset_reason == RR_S) {
+		sec_debug_store_extra_info_B();
+		strncpy(buf, (char *)SEC_DEBUG_EXTRA_INFO_VA, SZ_1K);
+		info_size = strlen(buf);
+	}
 
 	return info_size;
 }
 
 static ssize_t sec_hw_param_extrc_info_show(struct kobject *kobj,
-		struct kobj_attribute *attr, char *buf)
+					    struct kobj_attribute *attr, char *buf)
 {
 	ssize_t info_size = 0;
 
-	sec_debug_store_extra_info_C(buf);
-	info_size = strlen(buf);
+	if (reset_reason == RR_K || reset_reason == RR_D || 
+		reset_reason == RR_P || reset_reason == RR_S) {
+		sec_debug_store_extra_info_C();
+		strncpy(buf, (char *)SEC_DEBUG_EXTRA_INFO_VA, SZ_1K);
+		info_size = strlen(buf);
+	}
 
 	return info_size;
 }
 
 static ssize_t sec_hw_param_extrm_info_show(struct kobject *kobj,
-		struct kobj_attribute *attr, char *buf)
+					    struct kobj_attribute *attr, char *buf)
 {
 	ssize_t info_size = 0;
 
-	sec_debug_store_extra_info_M(buf);
-	info_size = strlen(buf);
+	if (reset_reason == RR_K || reset_reason == RR_D || 
+		reset_reason == RR_P || reset_reason == RR_S) {
+		sec_debug_store_extra_info_M();
+		strncpy(buf, (char *)SEC_DEBUG_EXTRA_INFO_VA, SZ_1K);
+		info_size = strlen(buf);
+	}
 
 	return info_size;
 }
 
 static ssize_t sec_hw_param_extrf_info_show(struct kobject *kobj,
-		struct kobj_attribute *attr, char *buf)
+					    struct kobj_attribute *attr, char *buf)
 {
 	ssize_t info_size = 0;
 
-	sec_debug_store_extra_info_F(buf);
-	info_size = strlen(buf);
+	if (reset_reason == RR_K || reset_reason == RR_D || 
+		reset_reason == RR_P || reset_reason == RR_S) {
+		sec_debug_store_extra_info_F();
+		strncpy(buf, (char *)SEC_DEBUG_EXTRA_INFO_VA, SZ_1K);
+		info_size = strlen(buf);
+	}
 
 	return info_size;
 }

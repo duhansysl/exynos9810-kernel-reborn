@@ -17,7 +17,7 @@
 #include <linux/sec_debug.h>
 #include <linux/sec_debug_ksan.h>
 #include <linux/sec_ext.h>
-#include <linux/sec_class.h>
+#include <linux/sec_sysfs.h>
 #include <linux/uaccess.h>
 #include <linux/io.h>
 #include <linux/slab.h>

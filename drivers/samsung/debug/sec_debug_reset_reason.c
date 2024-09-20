@@ -1,7 +1,7 @@
 /*
  *sec_debug_reset_reason.c
  *
- * Copyright (c) 2016 Samsung Electronics Co., Ltd
+ * Copyright (c) 2016-2018 Samsung Electronics Co., Ltd
  *              http://www.samsung.com
  *
  *  This program is free software; you can redistribute  it and/or modify it
@@ -15,17 +15,16 @@
 #include <linux/module.h>
 #include <linux/device.h>
 #include <linux/sec_debug.h>
-#include <linux/sec_class.h>
+#include <linux/sec_sysfs.h>
 #include <linux/soc/samsung/exynos-soc.h>
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
 #include <asm/stacktrace.h>
-#include <linux/uaccess.h>
-#include <linux/memblock.h>
-#include <linux/of.h>
-#include <linux/of_reserved_mem.h>
 
 unsigned int reset_reason = RR_N;
+static unsigned int pwrxsrc[2];
+static unsigned int rst_stat;
+extern struct sec_debug_panic_extra_info *sec_debug_extra_info_backup;
 
 static const char *regs_bit[][8] = {
 	{ "RSVD0", "TSD", "TIMEOUT", "LDO3OK", "PWRHOLD", "RSVD5", "RSVD6", "UVLOB" }, /* PWROFFSRC */
@@ -44,9 +43,6 @@ static const char *dword_regs_bit[][32] = {
 	}, /* RST_STAT */
 }; /* EXYNOS 9810 */
 
-static struct outbuf extra_buf;
-static struct outbuf pwrsrc_buf;
-
 static int __init sec_debug_set_reset_reason(char *arg)
 {
 	get_option(&arg, &reset_reason);
@@ -54,6 +50,27 @@ static int __init sec_debug_set_reset_reason(char *arg)
 }
 
 early_param("sec_debug.reset_reason", sec_debug_set_reset_reason);
+
+static int __init sec_debug_set_pwroffsrc(char *arg)
+{
+	get_option(&arg, &pwrxsrc[0]);
+	return 0;
+}
+early_param("sec_debug.pwroffsrc", sec_debug_set_pwroffsrc);
+
+static int __init sec_debug_set_pwronsrc(char *arg)
+{
+	get_option(&arg, &pwrxsrc[1]);
+	return 0;
+}
+early_param("sec_debug.pwronsrc", sec_debug_set_pwronsrc);
+
+static int __init sec_debug_set_rst_stat(char *arg)
+{
+	get_option(&arg, &rst_stat);
+	return 0;
+}
+early_param("sec_debug.rst_stat", sec_debug_set_rst_stat);
 
 static int set_debug_reset_reason_proc_show(struct seq_file *m, void *v)
 {
@@ -83,7 +100,7 @@ static int set_debug_reset_reason_proc_show(struct seq_file *m, void *v)
 	return 0;
 }
 
-bool is_target_reset_reason(void)
+static bool is_target_reset_reason(void)
 {
 	if (reset_reason == RR_K ||
 		reset_reason == RR_D || 
@@ -128,66 +145,40 @@ static const struct file_operations sec_debug_reset_reason_store_lastkmsg_proc_f
 	.release = single_release,
 };
 
-/*
- * proc/pwrsrc
- * OFFSRC (from PWROFF - 32) + ONSRC (from PWR - 32) + RSTSTAT (from RST - 32)
- * regs_bit (max 8) / dword_regs_bit (max 32)
- * total max : 48
- */
 static int sec_debug_reset_reason_pwrsrc_show(struct seq_file *m, void *v)
 {
+	ssize_t size = 0;
+	char buf[SZ_1K];
 	int i;
-	char val[32] = {0, };
-	unsigned long tmp;
 
-	if (pwrsrc_buf.already)
-		goto out;
-
-	memset(&pwrsrc_buf, 0, sizeof(pwrsrc_buf));
-
-	memset(val, 0, 32);
-	get_bk_item_val_as_string("PWROFF", val);
-	tmp = simple_strtol(val, NULL, 0);
-
-	secdbg_write_buf(&pwrsrc_buf, 0, "OFFSRC:");
-	if (!tmp)
-		secdbg_write_buf(&pwrsrc_buf, 0, " -");
+	size += scnprintf((char *)(buf + size), SZ_1K - size, "OFFSRC:");
+	if (!pwrxsrc[0])
+		size += scnprintf((char *)(buf + size), SZ_1K - size, " -");
 	else
 		for (i = 0; i < 8; i++)
-			if (tmp & (1 << i))
-				secdbg_write_buf(&pwrsrc_buf, 0, " %s", regs_bit[0][i]);
+			if (pwrxsrc[0] & (1 << i))
+				size += scnprintf((char *)(buf + size), SZ_1K - size, " %s", regs_bit[0][i]);
 
-	secdbg_write_buf(&pwrsrc_buf, 0, " /");
-
-	memset(val, 0, 32);
-	get_bk_item_val_as_string("PWR", val);
-	tmp = simple_strtol(val, NULL, 0);
-
-	secdbg_write_buf(&pwrsrc_buf, 0, " ONSRC:");
-	if (!tmp)
-		secdbg_write_buf(&pwrsrc_buf, 0, " -");
+	size += scnprintf((char *)(buf + size), SZ_1K - size, " /"); 
+	size += scnprintf((char *)(buf + size), SZ_1K - size, " ONSRC:");
+	if (!pwrxsrc[1])
+		size += scnprintf((char *)(buf + size), SZ_1K - size, " -");
 	else
 		for (i = 0; i < 8; i++)
-			if (tmp & (1 << i))
-				secdbg_write_buf(&pwrsrc_buf, 0, " %s", regs_bit[1][i]);
+			if (pwrxsrc[1] & (1 << i))
+				size += scnprintf((char *)(buf + size), SZ_1K - size, " %s", regs_bit[1][i]);
 
-	secdbg_write_buf(&pwrsrc_buf, 0, " /");
+	size += scnprintf((char *)(buf + size), SZ_1K - size, " /");
 
-	memset(val, 0, 32);
-	get_bk_item_val_as_string("RST", val);
-	tmp = simple_strtol(val, NULL, 0);
-
-	secdbg_write_buf(&pwrsrc_buf, 0, " RSTSTAT:");
-	if (!tmp)
-		secdbg_write_buf(&pwrsrc_buf, 0, " -");
+	size += scnprintf((char *)(buf + size), SZ_1K - size, " RSTSTAT:");
+	if (!rst_stat)
+		size += scnprintf((char *)(buf + size), SZ_1K - size, " -");
 	else
 		for (i = 0; i < 32; i++)
-			if (tmp & (1 << i))
-				secdbg_write_buf(&pwrsrc_buf, 0, " %s", dword_regs_bit[0][i]);
-
-	pwrsrc_buf.already = 1;
-out:
-	seq_printf(m, pwrsrc_buf.buf);
+			if (rst_stat & (1 << i))
+				size += scnprintf((char *)(buf + size), SZ_1K - size, " %s", dword_regs_bit[0][i]);
+	
+	seq_printf(m, buf);
 
 	return 0;
 }
@@ -204,151 +195,25 @@ static const struct file_operations sec_debug_reset_reason_pwrsrc_proc_fops = {
 	.release = single_release,
 };
 
-#define BBP_STR_LEN (64)
-
-static void handle_bug_string(char *buf, char *src)
-{
-	int idx = 0, len, i;
-
-	len = strlen(src);
-	if (BBP_STR_LEN < len)
-		len = BBP_STR_LEN;
-
-	for (i = 0; i < len; i++) {
-		if (src[i] == '/')
-			idx = i;
-	}
-
-	if (idx)
-		strncpy(buf, &(src[idx + 1]), len - idx);
-	else
-		strncpy(buf, src, len);
-}
-
-static void handle_bus_string(char *buf, char *src)
-{
-	int idx = 0, len, max = 2, cnt = 0, i;
-
-	len = strlen(src);
-	if (BBP_STR_LEN < len)
-		len = BBP_STR_LEN;
-
-	for (i = 0; i < len; i++) {
-		if (src[i] == '/') {
-			idx = i;
-			cnt++;
-
-			if (cnt == max)
-				goto out;
-		}
-	}
-
-out:
-	if (idx)
-		strncpy(buf, src, idx);
-	else
-		strncpy(buf, src, len);
-}
-
-enum pnc_str {
-	PNC_STR_IGNORE = 0,
-	PNC_STR_UNRECV = 1,
-	PNC_STR_REST = 2,
-};
-
-static int handle_panic_string(char *src)
-{
-	if (!src)
-		return PNC_STR_IGNORE;
-
-	if (!strncmp(src, "Fatal", 5))
-		return PNC_STR_IGNORE;
-	else if (!strncmp(src, "ITMON", 5))
-		return PNC_STR_IGNORE;
-	else if (!strncmp(src, "Unrecoverable", 13))
-		return PNC_STR_UNRECV;
-
-	return PNC_STR_REST;
-}
-
-/*
- * proc/extra
- * RSTCNT (32) + PC (256) + LR (256) (MAX: 544)
- * + BUG (256) + BUS (256) => get only 64 (BBP_STR_LEN) (MAX: 672)
- * + PANIC (256) => get only 64 (MAX: 736)
- * + SMU (256) => get only 64 (MAX: 800)
- * total max : 800
- */
 static int sec_debug_reset_reason_extra_show(struct seq_file *m, void *v)
 {
-	ssize_t ret = 0;
-	char *rstcnt, *pc, *lr;
-	char *bug, *bus, *pnc, *smu;
-	char buf_bug[BBP_STR_LEN] = {0, };
-	char buf_bus[BBP_STR_LEN] = {0, };
+	ssize_t size = 0;
+	char buf[SZ_1K];
 
-	if (extra_buf.already)
-		goto out;
+	if (!sec_debug_extra_info_backup)
+		return size;
+	
+	size += scnprintf((char *)(buf + size), SZ_1K - size,
+			"%s: %s  ",
+			sec_debug_extra_info_backup->item[INFO_PC].key,
+			sec_debug_extra_info_backup->item[INFO_PC].val);
 
-	memset(&extra_buf, 0, sizeof(extra_buf));
-
-	rstcnt = get_bk_item_val("RSTCNT");
-	pc = get_bk_item_val("PC");
-	lr = get_bk_item_val("LR");
-
-	bug = get_bk_item_val("BUG");
-	bus = get_bk_item_val("BUS");
-	pnc = get_bk_item_val("PANIC");
-	smu = get_bk_item_val("SMU");
-
-	secdbg_write_buf(&extra_buf, 0, "RCNT:");
-	if (rstcnt && strnlen(rstcnt, MAX_ITEM_VAL_LEN))
-		secdbg_write_buf(&extra_buf, 0, " %s /", rstcnt);
-	else
-		secdbg_write_buf(&extra_buf, 0, " - /");
-
-	secdbg_write_buf(&extra_buf, 0, " PC:");
-	if (pc && strnlen(pc, MAX_ITEM_VAL_LEN))
-		secdbg_write_buf(&extra_buf, 0, " %s", pc);
-	else
-		secdbg_write_buf(&extra_buf, 0, " -");
-
-	secdbg_write_buf(&extra_buf, 0, " LR:");
-	if (lr && strnlen(lr, MAX_ITEM_VAL_LEN))
-		secdbg_write_buf(&extra_buf, 0, " %s", lr);
-	else
-		secdbg_write_buf(&extra_buf, 0, " -");
-
-	/* BUG */
-	if (bug && strnlen(bug, MAX_ITEM_VAL_LEN)) {
-		handle_bug_string(buf_bug, bug);
-
-		secdbg_write_buf(&extra_buf, 0, " BUG: %s", buf_bug);
-	}
-
-	/* BUS */
-	if (bus && strnlen(bus, MAX_ITEM_VAL_LEN)) {
-		handle_bus_string(buf_bus, bus);
-
-		secdbg_write_buf(&extra_buf, 0, " BUS: %s", buf_bus);
-	}
-
-	/* PANIC */
-	ret = handle_panic_string(pnc);
-	if (ret == PNC_STR_UNRECV) {
-		if (smu && strnlen(smu, MAX_ITEM_VAL_LEN))
-			secdbg_write_buf(&extra_buf, BBP_STR_LEN, " SMU: %s", smu);
-		else
-			secdbg_write_buf(&extra_buf, BBP_STR_LEN, " PANIC: %s", pnc);
-	} else if (ret == PNC_STR_REST) {
-		if (strnlen(pnc, MAX_ITEM_VAL_LEN))
-			secdbg_write_buf(&extra_buf, BBP_STR_LEN, " PANIC: %s", pnc);
-	}
-
-	extra_buf.already = 1;
-
-out:
-	seq_printf(m, extra_buf.buf);
+	size += scnprintf((char *)(buf + size), SZ_1K - size,
+			"%s: %s",
+			sec_debug_extra_info_backup->item[INFO_LR].key,
+			sec_debug_extra_info_backup->item[INFO_LR].val);
+	
+	seq_printf(m, buf);
 
 	return 0;
 }
@@ -384,11 +249,6 @@ static int __init sec_debug_reset_reason_init(void)
 	entry = proc_create("pwrsrc", 0222, NULL, &sec_debug_reset_reason_pwrsrc_proc_fops);
 	if (!entry)
 		return -ENOMEM;
-
-//	dev = sec_device_create(NULL, "sec_reset_reason");
-//	ret = sysfs_create_group(&dev->kobj, &sec_reset_reason_attr_group);
-//	if (ret)
-//		pr_err("%s : could not create sysfs noden", __func__);
 
 	return 0;
 }

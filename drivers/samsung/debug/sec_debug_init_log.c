@@ -12,35 +12,25 @@
  */
 
 #include <linux/kernel.h>
+#include <linux/slab.h>
 #include <linux/sec_debug.h>
 
-static char *buf_ptr;
-static unsigned long buf_size;
+char init_log_buffer[SZ_128K];
+size_t init_log_size;
 static unsigned long buf_idx;
-
-size_t sec_debug_get_curr_init_ptr(void)
-{
-#ifdef CONFIG_SEC_DEBUG_SYSRQ_KMSG
-	if (!buf_ptr || !buf_size)
-		return 0;
-	else
-		return (size_t)(buf_ptr + buf_idx);
-#endif
-	return 0;
-}
 
 static void sec_debug_hook_init_log(const char *str, size_t size)
 {
 	int len;
 
-	if (buf_idx + size > buf_size) {
-		len = buf_size - buf_idx;
-		memcpy(buf_ptr + buf_idx, str, len);
-		memcpy(buf_ptr, str + len, size - len);
+	if (buf_idx + size > init_log_size) {
+		len = init_log_size - buf_idx;
+		memcpy(init_log_buffer + buf_idx, str, len);
+		memcpy(init_log_buffer, str + len, size - len);
 		buf_idx = size - len;
 	} else {
-		memcpy(buf_ptr + buf_idx, str, size);
-		buf_idx = (buf_idx + size) % buf_size;
+		memcpy(init_log_buffer + buf_idx, str, size);
+		buf_idx = (buf_idx + size) % init_log_size;
 	}
 }
 
@@ -48,15 +38,12 @@ static int __init sec_debug_init_init_log(void)
 {
 	pr_err("%s: start\n", __func__);
 
-	buf_ptr = (char *)phys_to_virt((sec_debug_get_buf_base(SDN_MAP_INITTASK_LOG)));
-	buf_size = sec_debug_get_buf_size(SDN_MAP_INITTASK_LOG);
-	pr_err("%s: buffer size 0x%llx at addr 0x%llx\n", __func__, buf_size ,buf_ptr);
+	init_log_size = (size_t)SZ_128K;
+	pr_err("%s: buffer size 0x%lx at addr %p\n", __func__,
+			init_log_size, init_log_buffer);
 
-	if (!buf_ptr || !buf_size)
-		return 0;
-
-	memset(buf_ptr, 0, buf_size);
 	register_init_log_hook_func(sec_debug_hook_init_log);
+
 	pr_err("%s: done\n", __func__);
 
 	return 0;

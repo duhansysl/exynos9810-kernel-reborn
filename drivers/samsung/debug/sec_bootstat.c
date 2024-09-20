@@ -24,23 +24,23 @@
 #include <linux/module.h>
 #include <linux/smp.h>
 #include <linux/sched.h>
-#include <linux/slab.h>
-#include <linux/sec_class.h>
+#include <linux/sec_sysfs.h>
 #include <linux/sec_ext.h>
 #include <clocksource/arm_arch_timer.h>
+#include <linux/slab.h>
 
 static u32 mct_start;
 
 /* timestamps at /proc/boot_stat
- * freq[3] : cluster0 / cluster1 / cluster2
- * temp[5] : cluster0 / cluster1 / cluster2 / gpu / isp
+ * freq[2] : cluster0 / cluster1
+ * temp[4] : cluster0 / cluster1 / gpu / isp
  */
 struct boot_event {
 	const char *string;
 	unsigned int time;
-	int freq[3];
+	int freq[2];
 	int online;
-	int temp[5];
+	int temp[4];
 	int order;
 };
 
@@ -97,10 +97,9 @@ struct enhanced_boot_time {
 	struct list_head next;
 	char buf[MAX_LENGTH_OF_BOOTING_LOG];
 	unsigned int time;
-	int freq[3];
+	int freq[2];
 	int online;
 };
-
 #define MAX_LENGTH_OF_SYSTEMSERVER_LOG 90
 struct systemserver_init_time_entry {
 	struct list_head next;
@@ -112,7 +111,6 @@ static bool ebs_finished = false;
 unsigned long long boot_complete_time = 0;
 static int events_ebs = 0;
 
-LIST_HEAD(device_init_time_list);
 LIST_HEAD(systemserver_init_time_list);
 LIST_HEAD(enhanced_boot_time_list);
 
@@ -214,12 +212,11 @@ void sec_bootstat_add(const char *c)
 
 void print_format(struct boot_event *data, struct seq_file *m, int index, int delta)
 {
-	seq_printf(m, "%-50s %6u %6u %6d %4d %4d %4d L%d%d%d%d M%d%d B%d%d %2d %2d %2d %2d %2d\n",
+	seq_printf(m, "%-50s %6u %6u %6d %4d %4d L%d%d%d%d B%d%d%d%d %2d %2d %2d %2d\n",
 		data[index].string, data[index].time + mct_start,
 		data[index].time, delta,
 		data[index].freq[0] / 1000,
 		data[index].freq[1] / 1000,
-		data[index].freq[2] / 1000,
 		data[index].online & 1,
 		(data[index].online >> 1) & 1,
 		(data[index].online >> 2) & 1,
@@ -231,8 +228,7 @@ void print_format(struct boot_event *data, struct seq_file *m, int index, int de
 		data[index].temp[0],
 		data[index].temp[1],
 		data[index].temp[2],
-		data[index].temp[3],
-		data[index].temp[4]
+		data[index].temp[3]
 		);
 }
 
@@ -240,13 +236,12 @@ static int sec_boot_stat_proc_show(struct seq_file *m, void *v)
 {
 	size_t i = 0;
 	unsigned int last_time = 0;
-	struct device_init_time_entry *entry;
 	struct systemserver_init_time_entry *systemserver_entry;
 
-	seq_puts(m, "boot event                                           time  ktime  delta f_c0 f_c1 f_c2  online_mask   B  M  L  G  I\n");
-	seq_puts(m, "-------------------------------------------------------------------------------------------------------------------\n");
+	seq_puts(m, "boot event                                           time  ktime  delta f_c0 f_c1 online mask  B  L  G  I\n");
+	seq_puts(m, "---------------------------------------------------------------------------------------------------------\n");
 	seq_puts(m, "BOOTLOADER - KERNEL\n");
-	seq_puts(m, "-------------------------------------------------------------------------------------------------------------------\n");
+	seq_puts(m, "---------------------------------------------------------------------------------------------------------\n");
 	seq_printf(m, "MCT is initialized in bl2                          %6u %6u %6u\n", 0, 0, 0);
 	seq_printf(m, "start kernel timer                                 %6u %6u %6u\n", mct_start, 0, mct_start);
 
@@ -255,9 +250,9 @@ static int sec_boot_stat_proc_show(struct seq_file *m, void *v)
 		last_time = boot_initcall[i].time;
 	}
 
-	seq_puts(m, "-------------------------------------------------------------------------------------------------------------------\n");
+	seq_puts(m, "---------------------------------------------------------------------------------------------------------\n");
 	seq_puts(m, "FRAMEWORK\n");
-	seq_puts(m, "-------------------------------------------------------------------------------------------------------------------\n");
+	seq_puts(m, "---------------------------------------------------------------------------------------------------------\n");
 	i = 0;
 	do {
 		if (boot_events[i].time != 0) {
@@ -271,19 +266,11 @@ static int sec_boot_stat_proc_show(struct seq_file *m, void *v)
 			break;
 	} while (i > 0 && i < ARRAY_SIZE(boot_events));
 
-	seq_puts(m, "-------------------------------------------------------------------------------------------------------------------\n");
-	seq_printf(m, "device init time over %d ms\n\n",
-			DEVICE_INIT_TIME_100MS / 1000);
-
-	list_for_each_entry (entry, &device_init_time_list, next)
-		seq_printf(m, "%-20s : %lld usces\n",
-				entry->buf, entry->duration);
-
-	seq_puts(m, "-------------------------------------------------------------------------------------------------------------------\n");
+	seq_puts(m, "---------------------------------------------------------------------------------------------------------\n");			
 	seq_puts(m, "SystemServer services that took long time\n\n");
 	list_for_each_entry (systemserver_entry, &systemserver_init_time_list, next)
 		seq_printf(m, "%s\n",systemserver_entry->buf);
-	
+
 	return 0;
 }
 
@@ -293,7 +280,7 @@ static int sec_enhanced_boot_stat_proc_show(struct seq_file *m, void *v)
 	unsigned int last_time = 0;
 	struct enhanced_boot_time *entry;
 
-	seq_printf(m, "%-90s %6s %6s %6s %4s %4s %4s\n", "Boot Events", "time", "ktime", "delta", "f_c0", "f_c1", "f_c2");
+	seq_printf(m, "%-90s %6s %6s %6s %4s %4s\n", "Boot Events", "time", "ktime", "delta", "f_c0", "f_c1");
 	seq_puts(m, "-----------------------------------------------------------------------------------------------------------------------\n");
 	seq_puts(m, "BOOTLOADER - KERNEL\n");
 	seq_puts(m, "-----------------------------------------------------------------------------------------------------------------------\n");
@@ -301,8 +288,8 @@ static int sec_enhanced_boot_stat_proc_show(struct seq_file *m, void *v)
 	seq_printf(m, "%-90s %6u %6u %6u\n", "start kernel timer", mct_start, 0, mct_start);
 
 	for (i = 0; i < ARRAY_SIZE(boot_initcall); i++) {
-		seq_printf(m, "%-90s %6u %6u %6u %4d %4d %4d\n", boot_initcall[i].string, boot_initcall[i].time + mct_start, boot_initcall[i].time,
-				boot_initcall[i].time - last_time, boot_initcall[i].freq[0] / 1000, boot_initcall[i].freq[1] / 1000, boot_initcall[i].freq[2] / 1000);
+		seq_printf(m, "%-90s %6u %6u %6u %4d %4d\n", boot_initcall[i].string, boot_initcall[i].time + mct_start, boot_initcall[i].time,
+				boot_initcall[i].time - last_time, boot_initcall[i].freq[0] / 1000, boot_initcall[i].freq[1] / 1000);
 		last_time = boot_initcall[i].time;
 	}
 
@@ -311,12 +298,12 @@ static int sec_enhanced_boot_stat_proc_show(struct seq_file *m, void *v)
 	seq_puts(m, "-----------------------------------------------------------------------------------------------------------------------\n");
 	list_for_each_entry_reverse (entry, &enhanced_boot_time_list, next){
 		if (entry->buf[0] == '!') {
-			seq_printf(m, "%-90s %6u %6u %6u %4d %4d %4d\n", entry->buf, entry->time + mct_start, entry->time, entry->time - last_time,
-			entry->freq[0] / 1000, entry->freq[1] / 1000, entry->freq[2] / 1000);
+			seq_printf(m, "%-90s %6u %6u %6u %4d %4d\n", entry->buf, entry->time + mct_start, entry->time, entry->time - last_time,
+			entry->freq[0] / 1000, entry->freq[1] / 1000);
 			last_time = entry->time;
 		}
 		else {
-			seq_printf(m, "%-90s %6u %6u %11d %4d %4d\n", entry->buf, entry->time + mct_start, entry->time, entry->freq[0] / 1000, entry->freq[1] / 1000, entry->freq[2] / 1000);
+			seq_printf(m, "%-90s %6u %6u %11d %4d\n", entry->buf, entry->time + mct_start, entry->time, entry->freq[0] / 1000, entry->freq[1] / 1000);
 		}
 	}
 	return 0;
