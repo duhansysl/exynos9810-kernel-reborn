@@ -15,31 +15,13 @@
 #include "ssp.h"
 
 #if defined(CONFIG_SENSORS_SSP_STAR)
-#if ANDROID_VERSION < 90000
-#define SSP_FIRMWARE_REVISION_BCM	18053100  /*Android O*/
-#elif ANDROID_VERSION < 100000 
-#define SSP_FIRMWARE_REVISION_BCM	19062800  /*Android P*/
-#else 
-#define SSP_FIRMWARE_REVISION_BCM	22072000  /*Android Q*/
-#endif
+#define SSP_FIRMWARE_REVISION_BCM       22072000  /*Android Q*/
 #elif defined(CONFIG_SENSORS_SSP_CROWN)
-#if ANDROID_VERSION < 90000
-#define SSP_FIRMWARE_REVISION_BCM	18090500  /*Android O*/
-#elif ANDROID_VERSION < 100000
-#define SSP_FIRMWARE_REVISION_BCM	19062800  /*Android P*/
-#else
-#define SSP_FIRMWARE_REVISION_BCM	22072000  /*Android Q*/
-#endif
+#define SSP_FIRMWARE_REVISION_BCM       22072000  /*Android Q*/
 #elif defined(CONFIG_SENSORS_SSP_HAECHI)
-#if ANDROID_VERSION < 90000
-#define SSP_FIRMWARE_REVISION_BCM	19062000  /*Android O*/
-#elif ANDROID_VERSION < 100000
-#define SSP_FIRMWARE_REVISION_BCM	22072000  /*Android P*/
+#define SSP_FIRMWARE_REVISION_BCM       22072000  /*Android Q*/
 #else
-#define SSP_FIRMWARE_REVISION_BCM	22072000  /*Android Q*/ 
-#endif
-#else
-#define SSP_FIRMWARE_REVISION_BCM	00000000
+#define SSP_FIRMWARE_REVISION_BCM       00000000
 #endif
 
 unsigned int get_module_rev(struct ssp_data *data)
