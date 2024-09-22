@@ -16,7 +16,7 @@
 #include <linux/workqueue.h>
 #include <linux/unistd.h>
 #include <linux/bug.h>
-#include <linux/sec_sysfs.h>
+#include <linux/sec_class.h>
 
 #ifdef CONFIG_SENSORS_SSP_BBD
 #include <linux/suspend.h>
