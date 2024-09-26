@@ -421,16 +421,7 @@ static int cpm_uart_startup(struct uart_port *port)
 			clrbits16(&pinfo->sccp->scc_sccm, UART_SCCM_RX);
 		}
 		cpm_uart_initbd(pinfo);
-		if (IS_SMC(pinfo)) {
-			out_be32(&pinfo->smcup->smc_rstate, 0);
-			out_be32(&pinfo->smcup->smc_tstate, 0);
-			out_be16(&pinfo->smcup->smc_rbptr,
-				 in_be16(&pinfo->smcup->smc_rbase));
-			out_be16(&pinfo->smcup->smc_tbptr,
-				 in_be16(&pinfo->smcup->smc_tbase));
-		} else {
-			cpm_line_cr_cmd(pinfo, CPM_CR_INIT_TRX);
-		}
+		cpm_line_cr_cmd(pinfo, CPM_CR_INIT_TRX);
 	}
 	/* Install interrupt handler. */
 	retval = request_irq(port->irq, cpm_uart_int, 0, "cpm_uart", port);
@@ -884,14 +875,16 @@ static void cpm_uart_init_smc(struct uart_cpm_port *pinfo)
 	         (u8 __iomem *)pinfo->tx_bd_base - DPRAM_BASE);
 
 /*
- *  In case SMC is being relocated...
+ *  In case SMC1 is being relocated...
  */
+#if defined (CONFIG_I2C_SPI_SMC1_UCODE_PATCH)
 	out_be16(&up->smc_rbptr, in_be16(&pinfo->smcup->smc_rbase));
 	out_be16(&up->smc_tbptr, in_be16(&pinfo->smcup->smc_tbase));
 	out_be32(&up->smc_rstate, 0);
 	out_be32(&up->smc_tstate, 0);
 	out_be16(&up->smc_brkcr, 1);              /* number of break chars */
 	out_be16(&up->smc_brkec, 0);
+#endif
 
 	/* Set up the uart parameters in the
 	 * parameter ram.
@@ -904,6 +897,8 @@ static void cpm_uart_init_smc(struct uart_cpm_port *pinfo)
 	out_be16(&up->smc_brklen, 0);
 	out_be16(&up->smc_brkec, 0);
 	out_be16(&up->smc_brkcr, 1);
+
+	cpm_line_cr_cmd(pinfo, CPM_CR_INIT_TRX);
 
 	/* Set UART mode, 8 bit, no parity, one stop.
 	 * Enable receive and transmit.
@@ -1073,8 +1068,8 @@ static int poll_wait_key(char *obuf, struct uart_cpm_port *pinfo)
 	/* Get the address of the host memory buffer.
 	 */
 	bdp = pinfo->rx_cur;
-	if (bdp->cbd_sc & BD_SC_EMPTY)
-		return NO_POLL_CHAR;
+	while (bdp->cbd_sc & BD_SC_EMPTY)
+		;
 
 	/* If the buffer address is in the CPM DPRAM, don't
 	 * convert it.
@@ -1109,11 +1104,7 @@ static int cpm_get_poll_char(struct uart_port *port)
 		poll_chars = 0;
 	}
 	if (poll_chars <= 0) {
-		int ret = poll_wait_key(poll_buf, pinfo);
-
-		if (ret == NO_POLL_CHAR)
-			return ret;
-		poll_chars = ret;
+		poll_chars = poll_wait_key(poll_buf, pinfo);
 		pollp = poll_buf;
 	}
 	poll_chars--;
