@@ -3,3 +3,4 @@
 # DS Defconfig
 #
 #
+CONFIG_BOEFFLA_WL_BLOCKER=y
