@@ -11,7 +11,7 @@ UMH_RESTRICTION_ENABLE=true
 TRUSTED_MAP_ENABLE=false
 
 ifneq ($(wildcard $(srctree)/include/crypto/internal/rsa.h),)
-    $(warning [DEFEX] INTEGRITY_ENABLE)
+    # $(warning [DEFEX] INTEGRITY_ENABLE)
     INTEGRITY_ENABLE=true
 endif
 
@@ -47,9 +47,9 @@ DEFEX_DEFINES += -DDEFEX_PERMISSIVE_INT
 ifeq ($(CONFIG_DEFEX_KERNEL_ONLY), y)
     DEFEX_DEFINES += -DDEFEX_KERNEL_ONLY
     ifeq ($(CONFIG_SAMSUNG_PRODUCT_SHIP), y)
-        $(warning [DEFEX] Kernel_only & Ship)
+        # $(warning [DEFEX] Kernel_only & Ship)
     else
-        $(warning [DEFEX] Kernel_only & Noship)
+        # $(warning [DEFEX] Kernel_only & Noship)
         defex-y += debug/defex_debug.o
         defex-y += core/defex_sysfs.o
         DEFEX_DEFINES += -DDEFEX_PERMISSIVE_INT
@@ -180,7 +180,7 @@ ifneq ($(wildcard  $(srctree)/$(src)/pack_rules.c),)
 
     SOURCE_RULES := $(srctree)/$(src)/defex_rules.c
     ifneq ($(wildcard $(srctree)/$(src)/file_list),)
-        $(warning '[DEFEX] file_list found')
+        # $(warning '[DEFEX] file_list found')
         SOURCE_RULES := $(srctree)/$(src)/defex_rules_reduced.c
         DEPEND_LIST += $(SOURCE_RULES)
         DEPEND_LIST += $(srctree)/$(src)/file_list
