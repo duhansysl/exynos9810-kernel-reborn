@@ -52,6 +52,8 @@ Module.symvers
 /vmlinuz
 /System.map
 /Module.markers
+arch/arm64/lib/lib.a.symversions
+lib/lib.a.symversions
 
 #
 # Debian directory (make deb-pkg)
@@ -120,14 +122,8 @@ all.config
 kernel/configs/android-*.cfg
 
 # DTBO and reverse
-
 arch/arm64/boot/dts/samsung/*.dtbo
 arch/arm64/boot/dts/samsung/*.reverse.dts
-
-# Misc 
-
-scripts/crypto/__pycache__/
-scripts/fmp/__pycache__/
 
 # DS
 drivers/gator_5.27/gator_src_md5.h
@@ -141,6 +137,7 @@ security/samsung/defex_lsm/cert/pubkey_user.der
 security/samsung/defex_lsm/defex_packed_rules.inc
 security/samsung/defex_lsm/pack_rules
 arch/arm64/boot/dts/exynos/*.dtb
+arch/arm64/boot/dts/exynos/*.dtbo
 arch/arm64/boot/dts/exynos/*.reverse.dts
 arch/arm64/boot/dtb.img
 arch/arm64/configs/tmp_defconfig
@@ -149,6 +146,16 @@ DS/Out/*.img
 DS/Product/*.img
 DS/Out/kernelzip/*
 DS/Product/*.zip
+arch/arm64/configs/tmp_defconfig
+drivers/gator_5.27/generated_gator_src_md5.h
+scripts/crypto/__pycache__/*
+scripts/fmp/__pycache__/*
+drivers/gator_5.27/gator_src_md5.h
+firmware/five/ffffffff000000000000000000000072.tlbin
+net/wireguard/crypto/zinc/chacha20/chacha20-arm64.S
+net/wireguard/crypto/zinc/poly1305/poly1305-arm64.S
+scripts/dtbtool_exynos/dtbtool
+arch/arm64/boot/dts/exynos/*reverse.dts
 
 # KSU
 drivers/kernelsu/*
