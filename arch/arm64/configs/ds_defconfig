@@ -19,3 +19,7 @@ CONFIG_SEC_MM=y
 # MoroSound
 #
 CONFIG_MORO_SOUND=y
+#
+# Flar2 Wake Gestures
+#
+CONFIG_WAKE_GESTURES=y
