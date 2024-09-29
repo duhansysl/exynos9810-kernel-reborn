@@ -24,15 +24,15 @@ CR_ARCH=arm64
 # Define proper arch and dir for dts files
 CR_DTS=arch/$CR_ARCH/boot/dts/exynos
 # Define boot.img out dir
-CR_OUT=$CR_DIR/Apollo/Out
-CR_PRODUCT=$CR_DIR/Apollo/Product
+CR_OUT=$CR_DIR/DS/Out
+CR_PRODUCT=$CR_DIR/DS/Product
 # Kernel Zip Package
-CR_ZIP=$CR_DIR/Apollo/kernelzip
+CR_ZIP=$CR_DIR/DS/kernelzip
 CR_OUTZIP=$CR_OUT/kernelzip
 # Presistant A.I.K Location
-CR_AIK=$CR_DIR/Apollo/A.I.K
+CR_AIK=$CR_DIR/DS/A.I.K
 # Main Ramdisk Location
-CR_RAMDISK=$CR_DIR/Apollo/Ramdisk
+CR_RAMDISK=$CR_DIR/DS/Ramdisk
 # Compiled image name and location (Image/zImage)
 CR_KERNEL=$CR_DIR/arch/$CR_ARCH/boot/Image
 # Compiled dtb by dtbtool
@@ -40,7 +40,7 @@ CR_DTB=$CR_DIR/arch/$CR_ARCH/boot/dtb.img
 # defconfig dir
 CR_DEFCONFIG=$CR_DIR/arch/$CR_ARCH/configs
 # Kernel Name and Version
-CR_VERSION=V1.6
+CR_VERSION=V2.0
 CR_NAME=DS-ACK
 # Thread count
 CR_JOBS=$(nproc --all)
@@ -69,7 +69,7 @@ CR_VARIANT_N960N=N960N
 # Common configs
 CR_CONFIG_9810=exynos9810_defconfig
 CR_CONFIG_SPLIT=NULL
-CR_CONFIG_APOLLO=apollo_defconfig
+CR_CONFIG_DS=ds_defconfig
 CR_CONFIG_INTL=eur_defconfig
 CR_CONFIG_KOR=kor_defconfig
 CR_SELINUX="2"
@@ -243,7 +243,7 @@ BUILD_OPTIONS()
 	# KSU Version
 	KSU_VERSION=$( [ -f "drivers/kernelsu/Makefile" ] && grep -oP '(?<=-DKSU_VERSION=)[0-9]+' drivers/kernelsu/Makefile )
 	echo "----------------------------------------------"
-	echo " Apollo Kernel Build Options "
+	echo " DS Kernel Build Options "
 	echo " "
 	echo " Kernel		- $CR_IMAGE_NAME"
 	echo " Device		- $CR_VARIANT"
@@ -296,9 +296,9 @@ BUILD_GENERATE_CONFIG()
   # Regional Config
   echo " Region	- $CR_CONFIG_REGION "
   cat $CR_DEFCONFIG/$CR_CONFIG_REGION >> $CR_DEFCONFIG/tmp_defconfig
-  # Apollo Custom defconfig
-  echo " Apollo	- $CR_CONFIG_APOLLO "
-  cat $CR_DEFCONFIG/$CR_CONFIG_APOLLO >> $CR_DEFCONFIG/tmp_defconfig
+  # DS Custom defconfig
+  echo " DS	- $CR_CONFIG_DS "
+  cat $CR_DEFCONFIG/$CR_CONFIG_DS >> $CR_DEFCONFIG/tmp_defconfig
   # Selinux Never Enforce all targets
   if [ $CR_SELINUX = "1" ]; then
     echo " Building SELinux Permissive Kernel"
@@ -663,7 +663,7 @@ echo "4) Clang 19 (^)"
 echo "5) Neutron Clang 18 (^)"
 echo "6) Neutron Clang 19 (^)"
 echo "7) Neutron Clang 20 (BETA)"
-echo "8) Other (Apollo/toolchain/clang-custom)"
+echo "8) Other (DS/toolchain/clang-custom)"
 echo " "
 read -p "Please select your compiler (1-7) > " CR_COMPILER
 echo " "
