@@ -23,3 +23,8 @@ CONFIG_MORO_SOUND=y
 # Flar2 Wake Gestures
 #
 CONFIG_WAKE_GESTURES=y
+#
+# Wireguard
+#
+CONFIG_WIREGUARD=y
+# CONFIG_WIREGUARD_DEBUG is not set
