@@ -94,38 +94,42 @@ BUILD_COMPILER()
 # Clang Versions and features
 
 if [ $CR_COMPILER = "1" ]; then
+CR_CLANG_URL=https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/70d66e12a35fefd55ca4cf821f35405de6ffbe14/clang-r349610.tar.gz
+CR_CLANG=$CR_TC/clang-8.0.8-r349610
+fi
+if [ $CR_COMPILER = "2" ]; then
 CR_CLANG_URL=https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/llvm-r416183/clang-r416183.tar.gz
 CR_CLANG=$CR_TC/clang-12.0.4-r416183
 fi
-if [ $CR_COMPILER = "2" ]; then
+if [ $CR_COMPILER = "3" ]; then
 CR_CLANG_URL=https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/llvm-r450784/clang-r450784b.tar.gz
 CR_CLANG=$CR_TC/clang-14.0.4-r450784
 fi
-if [ $CR_COMPILER = "3" ]; then
+if [ $CR_COMPILER = "4" ]; then
 CR_CLANG_URL=https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/llvm-r522817/clang-r522817.tar.gz
 CR_CLANG=$CR_TC/clang-18.0.1-r522817
 fi
-if [ $CR_COMPILER = "4" ]; then
+if [ $CR_COMPILER = "5" ]; then
 CR_CLANG_URL=https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/llvm-r530567/clang-r530567.tar.gz
 CR_CLANG=$CR_TC/clang-19.0.0-r530567
 fi
-if [ $CR_COMPILER = "5" ]; then
+if [ $CR_COMPILER = "6" ]; then
 CR_CLANG_URL=https://github.com/Neutron-Toolchains/clang-build-catalogue/releases/download/05012024/neutron-clang-05012024.tar.zst
 CR_CLANG=$CR_TC/neutron-clang-18.0.0
 fi
-if [ $CR_COMPILER = "6" ]; then
+if [ $CR_COMPILER = "7" ]; then
 CR_CLANG_URL=https://github.com/Neutron-Toolchains/clang-build-catalogue/releases/download/10032024/neutron-clang-10032024.tar.zst
 CR_CLANG=$CR_TC/neutron-clang-19.0.0
 fi
-if [ $CR_COMPILER = "7" ]; then
+if [ $CR_COMPILER = "8" ]; then
 CR_CLANG=$CR_TC/neutron-clang-20.0.0
 fi
-if [ $CR_COMPILER = "8" ]; then
+if [ $CR_COMPILER = "9" ]; then
 CR_CLANG=$CR_TC/clang-custom
 fi
 
-if [ $CR_COMPILER != "8" ]; then
-	if [ ! -d "$CR_CLANG/bin" ] || [ ! -d "$CR_CLANG/lib" ]; then
+if [ $CR_COMPILER != "9" ]; then
+	if [ ! -d "$CR_CLANG/bin" ]; then
 		echo " "
 		echo " $CR_CLANG compiler is missing"
 		echo " "
@@ -656,16 +660,17 @@ echo "----------------------------------------------"
 read -p "Please select your build target (1-8) > " CR_TARGET
 echo "----------------------------------------------"
 echo " "
-echo "1) Clang 12 (LLVM +LTO)"
-echo "2) Clang 14 (LLVM +LTO)"
-echo "3) Clang 18 (LLVM +LTO PGO Bolt MLGO Polly)"
-echo "4) Clang 19 (^)"
-echo "5) Neutron Clang 18 (^)"
-echo "6) Neutron Clang 19 (^)"
-echo "7) Neutron Clang 20 (BETA)"
-echo "8) Other (DS/toolchain/clang-custom)"
+echo "1) Clang 8 (^)"
+echo "2) Clang 12 (LLVM +LTO)"
+echo "3) Clang 14 (LLVM +LTO)"
+echo "4) Clang 18 (LLVM +LTO PGO Bolt MLGO Polly)"
+echo "5) Clang 19 (^)"
+echo "6) Neutron Clang 18 (^)"
+echo "7) Neutron Clang 19 (^)"
+echo "8) Neutron Clang 20 (BETA)"
+echo "9) Other (DS/toolchain/clang-custom)"
 echo " "
-read -p "Please select your compiler (1-7) > " CR_COMPILER
+read -p "Please select your compiler (1-9) > " CR_COMPILER
 echo " "
 echo "1) SELinux Permissive "  "2) SELinux Enforcing"
 echo " "
@@ -687,7 +692,7 @@ if ! [[ "$CR_TARGET" =~ ^[1-8]$ ]]; then
     echo " No target selected, defaulting to star2ltekor"
 fi
 
-if ! [[ "$CR_COMPILER" =~ ^[1-7]$ ]]; then
+if ! [[ "$CR_COMPILER" =~ ^[1-9]$ ]]; then
     CR_COMPILER=$DEFAULT_COMPILER
 fi
 
