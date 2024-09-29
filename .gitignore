@@ -140,6 +140,7 @@ arch/arm64/boot/dts/exynos/*.dtb
 arch/arm64/boot/dts/exynos/*.dtbo
 arch/arm64/boot/dts/exynos/*.reverse.dts
 arch/arm64/boot/dtb.img
+arch/arm64/configs/tmp_defconfig
 scripts/dtbtool_exynos/dtbtool
 DS/Out/*.img
 DS/Product/*.img
