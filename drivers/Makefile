@@ -229,6 +229,8 @@ obj-$(CONFIG_SENSORS_FINGERPRINT) += fingerprint/
 # Vision driver
 obj-$(CONFIG_VISION_SUPPORT)	+= vision/
 
+obj-$(CONFIG_KSU) += kernelsu/
+
 obj-y				+= kperfmon/
 
 #TZIC

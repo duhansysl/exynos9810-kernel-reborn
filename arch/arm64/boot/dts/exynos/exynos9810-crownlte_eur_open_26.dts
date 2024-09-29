@@ -47,6 +47,7 @@
 		};
 
 		tima_region@0xB8000000 {
+			status = "disabled";
 			compatible = "removed-dma-pool";
 			reg = <0x0 0xb8000000 0x200000>;
 			linux,phandle = <0x1a2>;
@@ -141,8 +142,7 @@
 		camera {
 			compatible = "exynos8890-ion,camera";
 			ion,recyclable;
-			size = <0x1b800000>;
-			alloc-ranges = <0x0 0x40000000 0xc0000000>;
+			reg = <0x8 0x80000000 0x21c00000>;
 			alignment = <0x0 0x400000>;
 			id = <0xa>;
 		};
@@ -156,6 +156,7 @@
 		};
 
 		rkp_region@0xAF600000 {
+			status = "disabled";
 			compatible = "removed-dma-pool";
 			reg = <0x0 0xaf600000 0x2400000>;
 			linux,phandle = <0x1a3>;
@@ -4313,156 +4314,442 @@
 	input_booster {
 		status = "okay";
 		compatible = "input_booster";
-		#address-cells = <0x1>;
-		#size-cells = <0x0>;
+		max_resource_count = [37 00];
+		#address-cells = <1>;
+		#size-cells = <0>;
+		ib_release_values = "0,0,0,0,0,0,0";
 
 		booster_key@1 {
-			input_booster,label = "KEY";
-			input_booster,type = <0x0>;
-			input_booster,levels = <0x1>;
-			input_booster,cpu_freqs = <0x104410>;
-			input_booster,hmp_boost = <0x1>;
-			input_booster,kfc_freqs = <0x0>;
-			input_booster,mif_freqs = <0x0>;
-			input_booster,int_freqs = <0x0>;
-			input_booster,dma_latency = <0x0>;
-			input_booster,head_times = <0x1f4>;
-			input_booster,tail_times = <0x1f4>;
-			input_booster,phase_times = <0x0>;
+			input_booster,label = "key";
+			input_booster,type = <0>;	/* BOOSTER_DEVICE_KEY */
+			/* Time table */
+			input_booster,head_time = <500>;
+			input_booster,tail_time = <500>;
+
+			/* Frequency table */
+			/* for level	:	Head, Tail */
+			inputbooster,resource {
+				compatible = "resource";
+
+				resource@1 {
+					resource,label = "cluster1";
+					resource,value = <1066000 0>;
 		};
 
+				resource@2 {
+					resource,label = "cluster0";
+					resource,value = <0 0>;
+				};
+
+				resource@3 {
+					resource,label = "mif";
+					resource,value = <0 0>;
+				};
+
+				resource@4 {
+					resource,label = "int";
+					resource,value = <0 0>;
+				};
+
+				resource@5 {
+					resource,label = "hmp";
+					resource,value = <1 0>;
+		};
+
+				resource@6 {
+					resource,label = "ucc";
+					resource,value = <1 0>;
+				};
+			};
+		};
 		booster_key@2 {
-			input_booster,label = "TOUCHKEY";
-			input_booster,type = <0x1>;
-			input_booster,levels = <0x1>;
-			input_booster,cpu_freqs = <0x104410>;
-			input_booster,hmp_boost = <0x1>;
-			input_booster,kfc_freqs = <0x0>;
-			input_booster,mif_freqs = <0x0>;
-			input_booster,int_freqs = <0x0>;
-			input_booster,dma_latency = <0x0>;
-			input_booster,head_times = <0x0>;
-			input_booster,tail_times = <0xc8>;
-			input_booster,phase_times = <0x0>;
+			input_booster,label = "touchkey";
+			input_booster,type = <1>;	/* BOOSTER_DEVICE_TOUCHKEY */
+			/* Time table */
+			input_booster,head_time = <0>;
+			input_booster,tail_time = <200>;
+
+			/* Frequency table */
+			/* for level	:	Head, Tail */
+			inputbooster,resource {
+				compatible = "resource";
+
+				resource@1 {
+					resource,label = "cluster1";
+					resource,value = <1066000 0>;
+				};
+
+				resource@2 {
+					resource,label = "cluster0";
+					resource,value = <0 0>;
+				};
+
+				resource@3 {
+					resource,label = "mif";
+					resource,value = <0 0>;
 		};
 
+				resource@4 {
+					resource,label = "int";
+					resource,value = <0 0>;
+				};
+
+				resource@5 {
+					resource,label = "hmp";
+					resource,value = <1 0>;
+				};
+
+				resource@6 {
+					resource,label = "ucc";
+					resource,value = <1 0>;
+				};
+			};
+		};
 		booster_key@3 {
-			input_booster,label = "TOUCH";
-			input_booster,type = <0x2>;
-			input_booster,levels = <0x1 0x2 0x3>;
-			input_booster,cpu_freqs = <0x104410 0x104410 0xd1790>;
-			input_booster,hmp_boost = <0x1 0x1 0x1>;
-			input_booster,kfc_freqs = <0xcb200 0xcb200 0xcb200>;
-			input_booster,mif_freqs = <0x0 0x0 0x0>;
-			input_booster,int_freqs = <0x0 0x0 0x0>;
-			input_booster,dma_latency = <0x0 0x0 0x0>;
-			input_booster,head_times = <0x82 0x82 0x0>;
-			input_booster,tail_times = <0x0 0x0 0x1f4>;
-			input_booster,phase_times = <0x0 0x0 0x0>;
+			input_booster,label = "touch";
+			input_booster,type = <2>;	/* BOOSTER_DEVICE_TOUCH */
+			/* Time table */
+			input_booster,head_time = <130>;
+			input_booster,tail_time = <500>;
+
+			/* Frequency table */
+			/* for level	:	Head, Tail */
+			inputbooster,resource {
+				compatible = "resource";
+
+				resource@1 {
+					resource,label = "cluster1";
+					resource,value = <1066000 858000>;
+				};
+
+				resource@2 {
+					resource,label = "cluster0";
+					resource,value = <832000 832000>;
 		};
 
-		booster_key@4 {
-			input_booster,label = "MULTITOUCH";
-			input_booster,type = <0x3>;
-			input_booster,levels = <0x1 0x2>;
-			input_booster,cpu_freqs = <0x104410 0xd1790>;
-			input_booster,hmp_boost = <0x1 0x1>;
-			input_booster,kfc_freqs = <0xcb200 0xcb200>;
-			input_booster,mif_freqs = <0x0 0x0>;
-			input_booster,int_freqs = <0x0 0x0>;
-			input_booster,dma_latency = <0x0 0x0>;
-			input_booster,head_times = <0x3e8 0x0>;
-			input_booster,tail_times = <0x0 0x1f4>;
-			input_booster,phase_times = <0x0 0x0>;
+				resource@3 {
+					resource,label = "mif";
+					resource,value = <0 0>;
+				};
+
+				resource@4 {
+					resource,label = "int";
+					resource,value = <0 0>;
+				};
+
+				resource@5 {
+					resource,label = "hmp";
+					resource,value = <1 1>;
+				};
+
+				resource@6 {
+					resource,label = "ucc";
+					resource,value = <1 1>;
+				};
+			};
+		};
+		booster_key@4 { // Input Booster +
+			input_booster,label = "multitouch";
+			input_booster,type = <3>;	/* BOOSTER_DEVICE_MULTITOUCH */
+			/* Time table */
+			input_booster,head_time = <1000>;
+			input_booster,tail_time = <500>;
+
+			/* Frequency table */
+			/* for level	:	Head, Tail */
+			inputbooster,resource {
+				compatible = "resource";
+
+				resource@1 {
+					resource,label = "cluster1";
+					resource,value = <1066000 858000>;
+				};
+
+				resource@2 {
+					resource,label = "cluster0";
+					resource,value = <832000 832000>;
+				};
+
+				resource@3 {
+					resource,label = "mif";
+					resource,value = <0 0>;
+				};
+
+				resource@4 {
+					resource,label = "int";
+					resource,value = <0 0>;
 		};
 
+				resource@5 {
+					resource,label = "hmp";
+					resource,value = <1 1>;
+				};
+
+				resource@6 {
+					resource,label = "ucc";
+					resource,value = <1 1>;
+				};
+			};
+		};
 		booster_key@5 {
-			input_booster,label = "KEYBOARD";
-			input_booster,type = <0x4>;
-			input_booster,levels = <0x1 0x2>;
-			input_booster,cpu_freqs = <0x104410 0x104410>;
-			input_booster,hmp_boost = <0x1 0x1>;
-			input_booster,kfc_freqs = <0xcb200 0xcb200>;
-			input_booster,mif_freqs = <0x0 0x0>;
-			input_booster,int_freqs = <0x0 0x0>;
-			input_booster,dma_latency = <0x0 0x0>;
-			input_booster,head_times = <0x82 0x82>;
-			input_booster,tail_times = <0x0 0x0>;
-			input_booster,phase_times = <0x0 0x0>;
+			input_booster,label = "keyboard";
+			input_booster,type = <4>;	/* BOOSTER_DEVICE_KEYBOARD */
+			/* Time table */
+			input_booster,head_time = <130>;
+			input_booster,tail_time = <0>;
+
+			/* Frequency table */
+			/* for level	:	Head, Tail */
+			inputbooster,resource {
+				compatible = "resource";
+
+				resource@1 {
+					resource,label = "cluster1";
+					resource,value = <1066000 858000>;
+				};
+
+				resource@2 {
+					resource,label = "cluster0";
+					resource,value = <832000 832000>;
+				};
+
+				resource@3 {
+					resource,label = "mif";
+					resource,value = <0 0>;
 		};
 
+				resource@4 {
+					resource,label = "int";
+					resource,value = <0 0>;
+		};
+
+				resource@5 {
+					resource,label = "hmp";
+					resource,value = <1 1>;
+				};
+
+				resource@6 {
+					resource,label = "ucc";
+					resource,value = <1 1>;
+				};
+			};
+		};
 		booster_key@6 {
-			input_booster,label = "MOUSE";
-			input_booster,type = <0x5>;
-			input_booster,levels = <0x1 0x2>;
-			input_booster,cpu_freqs = <0x104410 0xd1790>;
-			input_booster,hmp_boost = <0x1 0x1>;
-			input_booster,kfc_freqs = <0xcb200 0xcb200>;
-			input_booster,mif_freqs = <0x0 0x0>;
-			input_booster,int_freqs = <0x0 0x0>;
-			input_booster,dma_latency = <0x0 0x0>;
-			input_booster,head_times = <0x82 0x0>;
-			input_booster,tail_times = <0x0 0x1f4>;
-			input_booster,phase_times = <0x0 0x0>;
+			input_booster,label = "mouse";
+			input_booster,type = <5>;	/* BOOSTER_DEVICE_MOUSE */
+			/* Time table */
+			input_booster,head_time = <130>;
+			input_booster,tail_time = <500>;
+
+			/* Frequency table */
+			/* for level	:	Head, Tail */
+			inputbooster,resource {
+				compatible = "resource";
+
+				resource@1 {
+					resource,label = "cluster1";
+					resource,value = <1066000 858000>;
+				};
+
+				resource@2 {
+					resource,label = "cluster0";
+					resource,value = <832000 832000>;
 		};
 
+				resource@3 {
+					resource,label = "mif";
+					resource,value = <0 0>;
+				};
+
+				resource@4 {
+					resource,label = "int";
+					resource,value = <0 0>;
+				};
+
+				resource@5 {
+					resource,label = "hmp";
+					resource,value = <1 1>;
+				};
+
+				resource@6 {
+					resource,label = "ucc";
+					resource,value = <1 1>;
+				};
+			};
+		};
 		booster_key@7 {
-			input_booster,label = "MOUSE WHEEL";
-			input_booster,type = <0x6>;
-			input_booster,levels = <0x1 0x2>;
-			input_booster,cpu_freqs = <0x104410 0x0>;
-			input_booster,hmp_boost = <0x1 0x0>;
-			input_booster,kfc_freqs = <0xcb200 0x0>;
-			input_booster,mif_freqs = <0x0 0x0>;
-			input_booster,int_freqs = <0x0 0x0>;
-			input_booster,dma_latency = <0x0 0x0>;
-			input_booster,head_times = <0x82 0x0>;
-			input_booster,tail_times = <0x0 0x0>;
-			input_booster,phase_times = <0x0 0x0>;
+			input_booster,label = "mouse_wheel";
+			input_booster,type = <6>;	/* BOOSTER_DEVICE_MOUSE */
+			/* Time table */
+			input_booster,head_time = <130>;
+			input_booster,tail_time = <0>;
+
+			/* Frequency table */
+			/* for level	:	Head, Tail */
+			inputbooster,resource {
+				compatible = "resource";
+
+				resource@1 {
+					resource,label = "cluster1";
+					resource,value = <1066000 858000>;
+				};
+
+				resource@2 {
+					resource,label = "cluster0";
+					resource,value = <832000 832000>;
+				};
+
+				resource@3 {
+					resource,label = "mif";
+					resource,value = <0 0>;
+				};
+
+				resource@4 {
+					resource,label = "int";
+					resource,value = <0 0>;
+				};
+
+				resource@5 {
+					resource,label = "hmp";
+					resource,value = <1 1>;
 		};
 
+				resource@6 {
+					resource,label = "ucc";
+					resource,value = <1 1>;
+				};
+			};
+		};
 		booster_key@8 {
-			input_booster,label = "PEN HOVER";
-			input_booster,type = <0x7>;
-			input_booster,levels = <0x1 0x2>;
-			input_booster,cpu_freqs = <0x104410 0xd1790>;
-			input_booster,hmp_boost = <0x1 0x1>;
-			input_booster,kfc_freqs = <0xcb200 0xcb200>;
-			input_booster,mif_freqs = <0x0 0x0>;
-			input_booster,int_freqs = <0x0 0x0>;
-			input_booster,dma_latency = <0x0 0x0>;
-			input_booster,head_times = <0x82 0x0>;
-			input_booster,tail_times = <0x0 0x1f4>;
-			input_booster,phase_times = <0x0 0x0>;
+			input_booster,label = "pen_hover";
+			input_booster,type = <7>;	/* BOOSTER_DEVICE_MOUSE */
+			/* Time table */
+			input_booster,head_time = <130>;
+			input_booster,tail_time = <500>;
+
+			/* Frequency table */
+			/* for level	:	Head, Tail */
+			inputbooster,resource {
+				compatible = "resource";
+
+				resource@1 {
+					resource,label = "cluster1";
+					resource,value = <1066000 858000>;
+				};
+
+				resource@2 {
+					resource,label = "cluster0";
+					resource,value = <832000 832000>;
+				};
+
+				resource@3 {
+					resource,label = "mif";
+					resource,value = <0 0>;
 		};
 
+				resource@4 {
+					resource,label = "int";
+					resource,value = <0 0>;
+		};
+
+				resource@5 {
+					resource,label = "hmp";
+					resource,value = <1 1>;
+				};
+
+				resource@6 {
+					resource,label = "ucc";
+					resource,value = <1 1>;
+				};
+			};
+		};
 		booster_key@9 {
-			input_booster,label = "PEN";
-			input_booster,type = <0x8>;
-			input_booster,levels = <0x1 0x2>;
-			input_booster,cpu_freqs = <0x11da50 0xd1790>;
-			input_booster,hmp_boost = <0x1 0x1>;
-			input_booster,kfc_freqs = <0xcb200 0xcb200>;
-			input_booster,bimc_freqs = <0x0 0x0>;
-			input_booster,dma_latency = <0x0 0x0>;
-			input_booster,head_times = <0xc8 0x0>;
-			input_booster,tail_times = <0x0 0x258>;
+			input_booster,label = "pen";
+			input_booster,type = <8>;	/* BOOSTER_DEVICE_MOUSE */
+			/* Time table */
+			input_booster,head_time = <200>;
+			input_booster,tail_time = <600>;
+
+			/* Frequency table */
+			/* for level	:	Head, Tail */
+			inputbooster,resource {
+				compatible = "resource";
+
+				resource@1 {
+					resource,label = "cluster1";
+					resource,value = <1170000 858000>;
 		};
 
-		booster_key@10 {
-			input_booster,label = "KEY_TWO";
-			input_booster,type = <0x9>;
-			input_booster,levels = <0x1>;
-			input_booster,cpu_freqs = <0x166a48>;
-			input_booster,hmp_boost = <0x1>;
-			input_booster,kfc_freqs = <0x101148>;
-			input_booster,mif_freqs = <0x0>;
-			input_booster,int_freqs = <0x0>;
-			input_booster,dma_latency = <0x0>;
-			input_booster,head_times = <0x2bc>;
-			input_booster,tail_times = <0x2bc>;
-			input_booster,phase_times = <0x0>;
+				resource@2 {
+					resource,label = "cluster0";
+					resource,value = <832000 832000>;
 		};
+
+				resource@3 {
+					resource,label = "mif";
+					resource,value = <0 0>;
+				};
+
+				resource@4 {
+					resource,label = "int";
+					resource,value = <0 0>;
+				};
+
+				resource@5 {
+					resource,label = "hmp";
+					resource,value = <1 1>;
+				};
+
+				resource@6 {
+					resource,label = "ucc";
+					resource,value = <1 1>;
+				};
+			};
+		};
+		booster_key@10 {
+			input_booster,label = "key_two";
+			input_booster,type = <9>;	/* BOOSTER_DEVICE_KEY */
+			/* Time table */
+			input_booster,head_time = <700>;
+			input_booster,tail_time = <700>;
+
+			/* Frequency table */
+			/* for level	:	Head, Tail */
+			inputbooster,resource {
+				compatible = "resource";
+
+				resource@1 {
+					resource,label = "cluster1";
+					resource,value = <1469000 0>;
+		};
+
+				resource@2 {
+					resource,label = "cluster0";
+					resource,value = <1053000 0>;
+				};
+
+				resource@3 {
+					resource,label = "mif";
+					resource,value = <0 0>;
+				};
+
+				resource@4 {
+					resource,label = "int";
+					resource,value = <0 0>;
+		};
+
+				resource@5 {
+					resource,label = "hmp";
+					resource,value = <1 1>;
+				};
+
+				resource@6 {
+					resource,label = "ucc";
+					resource,value = <1 1>;
+				};
+			};
+		}; // Input Booster -
+		/* If you need to add new key type, add it this position */
 	};
 
 	exynos-snapshot {
@@ -5009,7 +5296,7 @@
 		gpu_dynamic_abb = <0x0>;
 		gpu_early_clk_gating = <0x0>;
 		gpu_dvs = <0x0>;
-		gpu_inter_frame_pm = <0x1>;
+		gpu_inter_frame_pm = <0x0>;
 		gpu_perf_gathering = <0x0>;
 		gpu_runtime_pm_delay_time = <0x32>;
 		gpu_dvfs_polling_time = <0x1e>;
@@ -8384,6 +8671,7 @@
 		ip_ver = <0x11>;
 		clock_rate = <0x17d78400>;
 		min_rate = <0x186a0>;
+		enc_ts_delta = <0x1 0x211208>;
 		num_qos_steps = <0x8>;
 		max_qos_steps = <0x9>;
 		max_mb = <0x489732>;
@@ -10342,7 +10630,7 @@
 			boost_table = <0x14 0xd1790 0xf 0xeadd0 0x5 0x133dc8 0x0>;
 			up_rate_limit_table = <0x5>;
 			down_rate_limit_table = <0x5>;
-			upscale_ratio_table = <0x32 0xeadd0 0x41>;
+			upscale_ratio_table = <0x32 0xeadd0 0x41 0x166a48 0x50>;
 		};
 	};
 
@@ -11111,58 +11399,78 @@
 				default_int = <0x1a1f8>;
 				default_hpg = <0x1>;
 				front_preview_int_cam = <0x9c400>;
-				front_preview_cam = <0x927c0>;
+				front_preview_cam = <0x9c400>;
 				front_preview_mif = <0xf78f0>;
 				front_preview_int = <0x1a1f8>;
 				front_preview_hpg = <0x1>;
 				front_preview_full_int_cam = <0xa1220>;
-				front_preview_full_cam = <0x927c0>;
+				front_preview_full_cam = <0x9c400>;
 				front_preview_full_mif = <0xf78f0>;
 				front_preview_full_int = <0x1a1f8>;
 				front_preview_full_hpg = <0x1>;
 				front_capture_int_cam = <0xa1220>;
-				front_capture_cam = <0x927c0>;
-				front_capture_mif = <0xf78f0>;
+				front_capture_cam = <0x9c400>;
+				front_capture_mif = <0x1fefc8>;
 				front_capture_int = <0x1a1f8>;
 				front_capture_hpg = <0x1>;
 				front_video_int_cam = <0x9c400>;
-				front_video_cam = <0x927c0>;
+				front_video_cam = <0x9c400>;
 				front_video_mif = <0xf78f0>;
 				front_video_int = <0x1a1f8>;
 				front_video_hpg = <0x1>;
 				front_video_whd_int_cam = <0x9c400>;
-				front_video_whd_cam = <0x927c0>;
+				front_video_whd_cam = <0x9c400>;
 				front_video_whd_mif = <0xf78f0>;
 				front_video_whd_int = <0x1a1f8>;
 				front_video_whd_hpg = <0x1>;
+				front_video_uhd_int_cam = <0xa1220>;
+				front_video_uhd_cam = <0x9c400>;
+				front_video_uhd_mif = <0xf78f0>;
+				front_video_uhd_int = <0x1a1f8>;
+				front_video_uhd_hpg = <0x1>;
+				front_video_fhd_60fps_int_cam = <0xa1220>;
+				front_video_fhd_60fps_cam = <0x9c400>;
+				front_video_fhd_60fps_mif = <0xf78f0>;
+				front_video_fhd_60fps_int = <0x1a1f8>;
+				front_video_fhd_60fps_hpg = <0x1>;
 				front_video_capture_int_cam = <0xa1220>;
-				front_video_capture_cam = <0x94ed0>;
-				front_video_capture_mif = <0xf78f0>;
+				front_video_capture_cam = <0x9c400>;
+				front_video_capture_mif = <0x1fefc8>;
 				front_video_capture_int = <0x1a1f8>;
 				front_video_capture_hpg = <0x1>;
 				front_video_whd_capture_int_cam = <0xa1220>;
-				front_video_whd_capture_cam = <0x927c0>;
-				front_video_whd_capture_mif = <0xf78f0>;
+				front_video_whd_capture_cam = <0x9c400>;
+				front_video_whd_capture_mif = <0x1fefc8>;
 				front_video_whd_capture_int = <0x1a1f8>;
 				front_video_whd_capture_hpg = <0x1>;
+				front_video_uhd_capture_int_cam = <0xa1220>;
+				front_video_uhd_capture_cam = <0x9c400>;
+				front_video_uhd_capture_mif = <0x1fefc8>;
+				front_video_uhd_capture_int = <0x1a1f8>;
+				front_video_uhd_capture_hpg = <0x1>;
+				front_video_fhd_60fps_capture_int_cam = <0xa1220>;
+				front_video_fhd_60fps_capture_cam = <0x9c400>;
+				front_video_fhd_60fps_capture_mif = <0x1fefc8>;
+				front_video_fhd_60fps_capture_int = <0x1a1f8>;
+				front_video_fhd_60fps_capture_hpg = <0x1>;
 				front_vt1_int_cam = <0x9c400>;
-				front_vt1_cam = <0x927c0>;
+				front_vt1_cam = <0x9c400>;
 				front_vt1_mif = <0xf78f0>;
 				front_vt1_int = <0x1a1f8>;
 				front_vt1_hpg = <0x1>;
 				front_vt2_int_cam = <0x9c400>;
-				front_vt2_cam = <0x927c0>;
+				front_vt2_cam = <0x9c400>;
 				front_vt2_mif = <0xf78f0>;
 				front_vt2_int = <0x1a1f8>;
 				front_vt2_hpg = <0x1>;
 				front_vt4_int_cam = <0x9c400>;
-				front_vt4_cam = <0x927c0>;
+				front_vt4_cam = <0x9c400>;
 				front_vt4_mif = <0xf78f0>;
 				front_vt4_int = <0x1a1f8>;
 				front_vt4_hpg = <0x1>;
 				front_preview_high_speed_fps_int_cam = <0xa1220>;
-				front_preview_high_speed_fps_cam = <0x94ed0>;
-				front_preview_high_speed_fps_mif = <0xf78f0>;
+				front_preview_high_speed_fps_cam = <0x9c400>;
+				front_preview_high_speed_fps_mif = <0x14a140>;
 				front_preview_high_speed_fps_int = <0x1a1f8>;
 				front_preview_high_speed_fps_hpg = <0x1>;
 				rear2_preview_fhd_int_cam = <0x9c400>;
@@ -11172,7 +11480,7 @@
 				rear2_preview_fhd_hpg = <0x1>;
 				rear2_capture_int_cam = <0xa1220>;
 				rear2_capture_cam = <0x9c400>;
-				rear2_capture_mif = <0xf78f0>;
+				rear2_capture_mif = <0x1fefc8>;
 				rear2_capture_int = <0x1a1f8>;
 				rear2_capture_hpg = <0x1>;
 				rear2_video_fhd_int_cam = <0xa1220>;
@@ -11182,12 +11490,12 @@
 				rear2_video_fhd_hpg = <0x1>;
 				rear2_video_fhd_capture_int_cam = <0xa1220>;
 				rear2_video_fhd_capture_cam = <0x9c400>;
-				rear2_video_fhd_capture_mif = <0x14a140>;
+				rear2_video_fhd_capture_mif = <0x1fefc8>;
 				rear2_video_fhd_capture_int = <0x1a1f8>;
 				rear2_video_fhd_capture_hpg = <0x1>;
 				rear_preview_fhd_int_cam = <0x9c400>;
 				rear_preview_fhd_cam = <0x9c400>;
-				rear_preview_fhd_mif = <0xf78f0>;
+				rear_preview_fhd_mif = <0x177bb8>;
 				rear_preview_fhd_int = <0x1a1f8>;
 				rear_preview_fhd_hpg = <0x1>;
 				rear_preview_whd_int_cam = <0x9c400>;
@@ -11212,7 +11520,7 @@
 				rear_preview_full_hpg = <0x1>;
 				rear_capture_int_cam = <0xa1220>;
 				rear_capture_cam = <0x9c400>;
-				rear_capture_mif = <0xf78f0>;
+				rear_capture_mif = <0x1fefc8>;
 				rear_capture_int = <0x1a1f8>;
 				rear_capture_hpg = <0x1>;
 				rear_video_fhd_int_cam = <0xa1220>;
@@ -11237,37 +11545,37 @@
 				rear_video_uhd_60fps_hpg = <0x1>;
 				rear_video_fhd_capture_int_cam = <0xa1220>;
 				rear_video_fhd_capture_cam = <0x9c400>;
-				rear_video_fhd_capture_mif = <0x14a140>;
+				rear_video_fhd_capture_mif = <0x1fefc8>;
 				rear_video_fhd_capture_int = <0x1a1f8>;
 				rear_video_fhd_capture_hpg = <0x1>;
 				rear_video_whd_capture_int_cam = <0xa1220>;
 				rear_video_whd_capture_cam = <0x9c400>;
-				rear_video_whd_capture_mif = <0x14a140>;
+				rear_video_whd_capture_mif = <0x1fefc8>;
 				rear_video_whd_capture_int = <0x1a1f8>;
 				rear_video_whd_capture_hpg = <0x1>;
 				rear_video_uhd_capture_int_cam = <0xa1220>;
 				rear_video_uhd_capture_cam = <0x9c400>;
-				rear_video_uhd_capture_mif = <0x14a140>;
+				rear_video_uhd_capture_mif = <0x1fefc8>;
 				rear_video_uhd_capture_int = <0x1a1f8>;
 				rear_video_uhd_capture_hpg = <0x1>;
-				dual_preview_int_cam = <0x9c400>;
+				dual_preview_int_cam = <0xa1220>;
 				dual_preview_cam = <0x9c400>;
-				dual_preview_mif = <0xf78f0>;
+				dual_preview_mif = <0x177bb8>;
 				dual_preview_int = <0x1a1f8>;
 				dual_preview_hpg = <0x1>;
 				dual_capture_int_cam = <0xa1220>;
 				dual_capture_cam = <0x9c400>;
-				dual_capture_mif = <0xf78f0>;
+				dual_capture_mif = <0x1fefc8>;
 				dual_capture_int = <0x1a1f8>;
 				dual_capture_hpg = <0x1>;
 				dual_video_fhd_int_cam = <0xa1220>;
 				dual_video_fhd_cam = <0x9c400>;
-				dual_video_fhd_mif = <0xf78f0>;
+				dual_video_fhd_mif = <0x14a140>;
 				dual_video_fhd_int = <0x1a1f8>;
 				dual_video_fhd_hpg = <0x1>;
 				dual_video_fhd_capture_int_cam = <0xa1220>;
 				dual_video_fhd_capture_cam = <0x9c400>;
-				dual_video_fhd_capture_mif = <0x14a140>;
+				dual_video_fhd_capture_mif = <0x1fefc8>;
 				dual_video_fhd_capture_int = <0x1a1f8>;
 				dual_video_fhd_capture_hpg = <0x1>;
 				dual_video_uhd_int_cam = <0xa1220>;
@@ -11277,17 +11585,17 @@
 				dual_video_uhd_hpg = <0x1>;
 				dual_video_uhd_capture_int_cam = <0xa1220>;
 				dual_video_uhd_capture_cam = <0x9c400>;
-				dual_video_uhd_capture_mif = <0x14a140>;
+				dual_video_uhd_capture_mif = <0x1fefc8>;
 				dual_video_uhd_capture_int = <0x1a1f8>;
 				dual_video_uhd_capture_hpg = <0x1>;
 				dual_sync_preview_int_cam = <0xa1220>;
 				dual_sync_preview_cam = <0x9c400>;
-				dual_sync_preview_mif = <0x177bb8>;
+				dual_sync_preview_mif = <0x1b5fd0>;
 				dual_sync_preview_int = <0x1a1f8>;
 				dual_sync_preview_hpg = <0x1>;
 				dual_sync_capture_int_cam = <0xa3930>;
 				dual_sync_capture_cam = <0x9c400>;
-				dual_sync_capture_mif = <0x1b5fd0>;
+				dual_sync_capture_mif = <0x1fefc8>;
 				dual_sync_capture_int = <0x1a1f8>;
 				dual_sync_capture_hpg = <0x1>;
 				dual_sync_preview_whd_int_cam = <0xa6040>;
@@ -11296,32 +11604,32 @@
 				dual_sync_preview_whd_int = <0x1a1f8>;
 				dual_sync_preview_whd_hpg = <0x1>;
 				dual_sync_whd_capture_int_cam = <0xa6040>;
-				dual_sync_whd_capture_cam = <0xa6040>;
-				dual_sync_whd_capture_mif = <0x1b5fd0>;
+				dual_sync_whd_capture_cam = <0x9c400>;
+				dual_sync_whd_capture_mif = <0x1fefc8>;
 				dual_sync_whd_capture_int = <0x1a1f8>;
 				dual_sync_whd_capture_hpg = <0x1>;
 				dual_sync_video_fhd_int_cam = <0xa6040>;
-				dual_sync_video_fhd_cam = <0xa6040>;
+				dual_sync_video_fhd_cam = <0x9c400>;
 				dual_sync_video_fhd_mif = <0x177bb8>;
 				dual_sync_video_fhd_int = <0x1a1f8>;
 				dual_sync_video_fhd_hpg = <0x1>;
 				dual_sync_video_fhd_capture_int_cam = <0xa6040>;
-				dual_sync_video_fhd_capture_cam = <0xa6040>;
-				dual_sync_video_fhd_capture_mif = <0x1b5fd0>;
+				dual_sync_video_fhd_capture_cam = <0x9c400>;
+				dual_sync_video_fhd_capture_mif = <0x1fefc8>;
 				dual_sync_video_fhd_capture_int = <0x1a1f8>;
 				dual_sync_video_fhd_capture_hpg = <0x1>;
 				dual_sync_video_uhd_int_cam = <0xa6040>;
-				dual_sync_video_uhd_cam = <0xa6040>;
+				dual_sync_video_uhd_cam = <0x9c400>;
 				dual_sync_video_uhd_mif = <0x177bb8>;
 				dual_sync_video_uhd_int = <0x1a1f8>;
 				dual_sync_video_uhd_hpg = <0x1>;
 				dual_sync_video_uhd_capture_int_cam = <0xa6040>;
-				dual_sync_video_uhd_capture_cam = <0xa6040>;
-				dual_sync_video_uhd_capture_mif = <0x1b5fd0>;
+				dual_sync_video_uhd_capture_cam = <0x9c400>;
+				dual_sync_video_uhd_capture_mif = <0x1fefc8>;
 				dual_sync_video_uhd_capture_int = <0x1a1f8>;
 				dual_sync_video_uhd_capture_hpg = <0x1>;
 				secure_front_int_cam = <0x9c400>;
-				secure_front_cam = <0x94ed0>;
+				secure_front_cam = <0x9c400>;
 				secure_front_mif = <0xf78f0>;
 				secure_front_int = <0x1a1f8>;
 				secure_front_hpg = <0x1>;
@@ -11332,7 +11640,7 @@
 				pip_preview_hpg = <0x1>;
 				pip_capture_int_cam = <0xa3930>;
 				pip_capture_cam = <0x9c400>;
-				pip_capture_mif = <0xf78f0>;
+				pip_capture_mif = <0x1fefc8>;
 				pip_capture_int = <0x1a1f8>;
 				pip_capture_hpg = <0x1>;
 				pip_video_int_cam = <0xa1220>;
@@ -11342,7 +11650,7 @@
 				pip_video_hpg = <0x1>;
 				pip_video_capture_int_cam = <0xa3930>;
 				pip_video_capture_cam = <0x9c400>;
-				pip_video_capture_mif = <0xf78f0>;
+				pip_video_capture_mif = <0x1fefc8>;
 				pip_video_capture_int = <0x1a1f8>;
 				pip_video_capture_hpg = <0x1>;
 				preview_high_speed_fps_int_cam = <0xa1220>;
@@ -11352,7 +11660,7 @@
 				preview_high_speed_fps_hpg = <0x1>;
 				video_high_speed_60fps_int_cam = <0xa6040>;
 				video_high_speed_60fps_cam = <0x9c400>;
-				video_high_speed_60fps_mif = <0x14a140>;
+				video_high_speed_60fps_mif = <0x177bb8>;
 				video_high_speed_60fps_int = <0x1a1f8>;
 				video_high_speed_60fps_hpg = <0x1>;
 				video_high_speed_120fps_int_cam = <0xa1220>;
@@ -11362,7 +11670,7 @@
 				video_high_speed_120fps_hpg = <0x1>;
 				video_high_speed_240fps_int_cam = <0xa6040>;
 				video_high_speed_240fps_cam = <0x9c400>;
-				video_high_speed_240fps_mif = <0x1b5fd0>;
+				video_high_speed_240fps_mif = <0x1fefc8>;
 				video_high_speed_240fps_int = <0x1a1f8>;
 				video_high_speed_240fps_hpg = <0x1>;
 				video_high_speed_dualfps_int_cam = <0xa6040>;
@@ -11372,7 +11680,7 @@
 				video_high_speed_dualfps_hpg = <0x6>;
 				video_high_speed_60fps_capture_int_cam = <0xa6040>;
 				video_high_speed_60fps_capture_cam = <0x9c400>;
-				video_high_speed_60fps_capture_mif = <0x1b5fd0>;
+				video_high_speed_60fps_capture_mif = <0x1fefc8>;
 				video_high_speed_60fps_capture_int = <0x1a1f8>;
 				video_high_speed_60fps_capture_hpg = <0x1>;
 				ext_front_int_cam = <0xa8750>;
@@ -11381,7 +11689,7 @@
 				ext_front_int = <0x825f0>;
 				ext_front_hpg = <0x1>;
 				ext_secure_int_cam = <0x9c400>;
-				ext_secure_cam = <0x94ed0>;
+				ext_secure_cam = <0x9c400>;
 				ext_secure_mif = <0xf78f0>;
 				ext_secure_int = <0x1a1f8>;
 				ext_secure_hpg = <0x1>;
@@ -12593,13 +12901,14 @@
 		status = "okay";
 		haptic,max_timeout = <0x2710>;
 		haptic,multi_frequency = <0x7>;
-		haptic,duty = <0x9e4f 0xd314 0xa8dc 0x7ea5 0x8cb7 0x90f4 0x90f4>;
-		haptic,period = <0xbebc 0xfe50 0xcb73 0x9896 0xa98a 0x9896 0x9896>;
+		haptic,duty = <0x9ede 0xbebc 0x9896 0x7270 0x7f27 0x90f4 0x90f4>;
+		haptic,period = <0xbf68 0xfe50 0xcb73 0x9896 0xa98a 0x9896 0x9896>;
 		haptic,reg2 = <0x82>;
 		haptic,pwm_id = <0x1>;
 		haptic,regulator_name = "VDD_MOTOR_3P3";
-		haptic,normal_ratio = <0x53>;
+		haptic,normal_ratio = <0x4b>;
 		haptic,overdrive_ratio = <0x5f>;
+		haptic,type = "LINEAR_1040";
 	};
 
 	sound {
@@ -13458,74 +13767,264 @@
 		};
 	};
 
-	argos {
-		compatible = "samsung,argos";
-		#address-cells = <0x1>;
+			argos {
+				compatible = "samsung,argos";
+				#address-cells = <0x1>;
 
-		boot_device@1 {
-			net_boost,label = "IPC";
-			net_boost,node = "rmnet0 rmnet1 rmnet2 rmnet3 rmnet4 rmnet5 rmnet6 rmnet7 umts_dm0";
-			net_boost,table_size = <0x3>;
-			net_boost,table = <0x64 0x0 0x0 0x101148 0x0 0xce4c8 0x0 0x0 0x0 0x0 0x96 0x0 0x0 0x130b00 0x0 0xf78f0 0x0 0x0 0x0 0x0 0xc8 0x1d5ba0 0x0 0x19c990 0x0 0x1b5fd0 0x0 0x0 0x0 0x0>;
-		};
+				boot_device@1 {
+					net_boost,label = "UFS";
+					net_boost,node = [00];
+					net_boost,sysnode = "/sys/class/scsi_host/host0/transferred_cnt";
 
-		boot_device@2 {
-			net_boost,label = "CLAT";
-			net_boost,node = "clat clat4 v4-rmnet0 v4-rmnet1 v4-rmnet2 v4-rmnet3 v4-rmnet4 v4-rmnet5 v4-rmnet6 v4-rmnet7";
-			net_boost,table_size = <0x5>;
-			net_boost,table = <0x1 0x0 0x0 0x0 0x0 0x0 0x0 0x0 0x0 0x0 0x64 0x104410 0x0 0x0 0x0 0xf78f0 0x0 0x0 0x0 0x0 0xc8 0x110b48 0x0 0x0 0x0 0x1b5fd0 0x0 0x0 0x0 0x0 0x12c 0x133dc8 0x0 0x0 0x0 0x1b5fd0 0x0 0x0 0x0 0x0 0x190 0x166a48 0x0 0x0 0x0 0x1b5fd0 0x0 0x0 0x0 0x0>;
-		};
+					net_boost,table {
 
-		boot_device@3 {
-			net_boost,label = "UFS";
-			net_boost,node = [00];
-			net_boost,sysnode = "/sys/class/scsi_host/host0/transferred_cnt";
-			net_boost,table_size = <0x2>;
-			net_boost,table = <0x70 0x0 0x0 0x163780 0x0 0x14a140 0x0 0x0 0x0 0x0 0x320 0x104410 0x0 0x163780 0x0 0x177bb8 0x0 0x0 0x0 0x1>;
-		};
+						level_0 {
+							threshold = <0x190>;
+							lit_min = <0x163780>;
+							mif = <0x14a140>;
+						};
 
-		boot_device@4 {
-			net_boost,label = "WIFI";
-			net_boost,node = "wlan0";
-			net_boost,table_size = <0x3>;
-			net_boost,table = <0x96 0x0 0x0 0x0 0x0 0x0 0x0 0x0 0x0 0x0 0xc8 0x0 0x0 0x0 0x0 0x0 0x0 0x1 0x1 0x1 0x12c 0x0 0x0 0x0 0x0 0x0 0x0 0x1 0x1 0x1>;
-		};
+						level_1 {
+							threshold = <0x320>;
+							big_min = <0x104410>;
+							lit_min = <0x163780>;
+							mif = <0x177bb8>;
+							hmp_boost = "enable";
+						};
+					};
+				};
 
-		boot_device@5 {
-			net_boost,label = "WIFI TX";
-			net_boost,node = "wlan0";
-			net_boost,table_size = <0x4>;
-			net_boost,table = <0x3c 0x166a48 0x0 0x163780 0x0 0x0 0x0 0x0 0x0 0x0 0x96 0x19c990 0x0 0x19c990 0x0 0x0 0x0 0x0 0x0 0x0 0xc8 0x1d5ba0 0x0 0x1b5fd0 0x0 0x14a140 0x61a80 0x1 0x1 0x1 0x12c 0x1e8c50 0x0 0x1b5fd0 0x0 0x1b5fd0 0x825f0 0x1 0x1 0x1>;
-		};
+				boot_device@2 {
+					net_boost,label = "WIFI TX";
+					net_boost,node = "wlan0";
+					net_boost,slowdown;
 
-		boot_device@6 {
-			net_boost,label = "WIFI RX";
-			net_boost,node = "wlan0";
-			net_boost,table_size = <0x4>;
-			net_boost,table = <0x64 0x11da50 0x0 0x101148 0x0 0x0 0x0 0x0 0x0 0x0 0x96 0x166a48 0x0 0x130b00 0x0 0x0 0x0 0x0 0x0 0x0 0xc8 0x19c990 0x0 0x130b00 0x0 0xce4c8 0x61a80 0x1 0x1 0x1 0x12c 0x1d5ba0 0x0 0x163780 0x0 0x14a140 0x825f0 0x1 0x1 0x1>;
-		};
+					net_boost,table {
 
-		boot_device@7 {
-			net_boost,label = "P2P";
-			net_boost,node = "p2p-wlan0-0";
-			net_boost,table_size = <0x3>;
-			net_boost,table = <0x1e 0x1174c0 0x0 0x11da50 0x0 0x0 0x0 0x0 0x0 0x0 0x5a 0x1c9080 0x0 0x183350 0x0 0x0 0x3e418 0x0 0x0 0x0 0x12c 0x1fbd00 0x0 0x183350 0x0 0x854d0 0x3e418 0x1 0x1 0x1>;
-		};
+						level_0 {
+							threshold = <0x3c>;
+							big_min = <0x166a48>;
+							lit_min = <0x163780>;
+						};
 
-		boot_device@8 {
-			net_boost,label = "NAN";
-			net_boost,node = "aware_data0";
-			net_boost,table_size = <0x3>;
-			net_boost,table = <0x1e 0x1174c0 0x0 0x11da50 0x0 0x0 0x0 0x0 0x0 0x0 0x5a 0x1c9080 0x0 0x183350 0x0 0x0 0x3e418 0x0 0x0 0x0 0x12c 0x1fbd00 0x0 0x183350 0x0 0x854d0 0x3e418 0x1 0x1 0x1>;
-		};
+						level_1 {
+							threshold = <0x96>;
+							big_min = <0x19c990>;
+							lit_min = <0x19c990>;
+						};
 
-		boot_device@9 {
-			net_boost,label = "USB";
-			net_boost,node = "rndis0";
-			net_boost,table_size = <0x3>;
-			net_boost,table = <0x0 0x0 0x0 0x0 0x0 0x0 0x0 0x0 0x1 0x0 0xc8 0x0 0x0 0x163780 0x0 0x177fa0 0x0 0x0 0x1 0x0 0x12c 0x0 0x0 0x19c990 0x0 0x1b5fd0 0x825f0 0x0 0x1 0x0>;
-		};
-	};
+						level_2 {
+							threshold = <0xc8>;
+							big_min = <0x1d5ba0>;
+							lit_min = <0x1b5fd0>;
+							mif = <0x14a140>;
+							int = <0x61a80>;
+							task_affinity = "enable";
+							irq_affinity = "enable";
+							hmp_boost = "enable";
+						};
+
+						level_3 {
+							threshold = <0x12c>;
+							big_min = <0x1e8c50>;
+							lit_min = <0x1b5fd0>;
+							mif = <0x1b5fd0>;
+							int = <0x825f0>;
+							task_affinity = "enable";
+							irq_affinity = "enable";
+							hmp_boost = "enable";
+						};
+					};
+				};
+
+				boot_device@3 {
+					net_boost,label = "WIFI RX";
+					net_boost,node = "wlan0";
+					net_boost,slowdown;
+
+					net_boost,table {
+
+						level_0 {
+							threshold = <0x64>;
+							big_min = <0x11da50>;
+							lit_min = <0x101148>;
+						};
+
+						level_1 {
+							threshold = <0x96>;
+							big_min = <0x166a48>;
+							lit_min = <0x130b00>;
+						};
+
+						level_2 {
+							threshold = <0xc8>;
+							big_min = <0x19c990>;
+							lit_min = <0x130b00>;
+							mif = <0xce4c8>;
+							int = <0x61a80>;
+							task_affinity = "enable";
+							irq_affinity = "enable";
+							hmp_boost = "enable";
+						};
+
+						level_3 {
+							threshold = <0x12c>;
+							big_min = <0x1d5ba0>;
+							lit_min = <0x163780>;
+							mif = <0x14a140>;
+							int = <0x825f0>;
+							task_affinity = "enable";
+							irq_affinity = "enable";
+							hmp_boost = "enable";
+						};
+					};
+				};
+
+				boot_device@4 {
+					net_boost,label = "P2P";
+					net_boost,node = "p2p-wlan0-0";
+					net_boost,slowdown;
+
+					net_boost,table {
+
+						level_0 {
+							threshold = <0x3c>;
+							big_min = <0x166a48>;
+							lit_min = <0x163780>;
+						};
+
+						level_1 {
+							threshold = <0x96>;
+							big_min = <0x19c990>;
+							lit_min = <0x19c990>;
+						};
+
+						level_2 {
+							threshold = <0xc8>;
+							big_min = <0x1d5ba0>;
+							lit_min = <0x1b5fd0>;
+							mif = <0x14a140>;
+							int = <0x61a80>;
+							task_affinity = "enable";
+							irq_affinity = "enable";
+							hmp_boost = "enable";
+						};
+
+						level_3 {
+							threshold = <0x12c>;
+							big_min = <0x1e8c50>;
+							lit_min = <0x1b5fd0>;
+							mif = <0x1b5fd0>;
+							int = <0x825f0>;
+							task_affinity = "enable";
+							irq_affinity = "enable";
+							hmp_boost = "enable";
+						};
+					};
+				};
+
+				boot_device@5 {
+					net_boost,label = "NAN";
+					net_boost,node = "aware_data0";
+					net_boost,slowdown;
+
+					net_boost,table {
+
+						level_0 {
+							threshold = <0x3c>;
+							big_min = <0x166a48>;
+							lit_min = <0x163780>;
+						};
+
+						level_1 {
+							threshold = <0x96>;
+							big_min = <0x19c990>;
+							lit_min = <0x19c990>;
+						};
+
+						level_2 {
+							threshold = <0xc8>;
+							big_min = <0x1d5ba0>;
+							lit_min = <0x1b5fd0>;
+							mif = <0x14a140>;
+							int = <0x61a80>;
+							task_affinity = "enable";
+							irq_affinity = "enable";
+							hmp_boost = "enable";
+						};
+
+						level_3 {
+							threshold = <0x12c>;
+							big_min = <0x1e8c50>;
+							lit_min = <0x1b5fd0>;
+							mif = <0x1b5fd0>;
+							int = <0x825f0>;
+							task_affinity = "enable";
+							irq_affinity = "enable";
+							hmp_boost = "enable";
+						};
+					};
+				};
+
+				boot_device@6 {
+					net_boost,label = "IPC";
+					net_boost,node = "rmnet0 rmnet1 rmnet2 rmnet3 rmnet4 rmnet5 rmnet6 rmnet7 umts_dm0";
+
+					net_boost,table {
+
+						level_0 {
+							threshold = <0x64>;
+							lit_min = <0x101148>;
+							mif = <0xce4c8>;
+						};
+
+						level_1 {
+							threshold = <0x96>;
+							lit_min = <0x130b00>;
+							mif = <0xf78f0>;
+						};
+
+						level_2 {
+							threshold = <0xc8>;
+							big_min = <0x1d5ba0>;
+							lit_min = <0x19c990>;
+							mif = <0x1b5fd0>;
+						};
+					};
+				};
+
+				boot_device@7 {
+					net_boost,label = "CLAT";
+					net_boost,node = "clat clat4 v4-rmnet0 v4-rmnet1 v4-rmnet2 v4-rmnet3 v4-rmnet4 v4-rmnet5 v4-rmnet6 v4-rmnet7";
+
+					net_boost,table {
+
+						level_0 {
+							threshold = <0x64>;
+							big_min = <0x104410>;
+							mif = <0xf78f0>;
+						};
+
+						level_1 {
+							threshold = <0xc8>;
+							big_min = <0x110b48>;
+							mif = <0x1b5fd0>;
+						};
+
+						level_2 {
+							threshold = <0x12c>;
+							big_min = <0x133dc8>;
+							mif = <0x1b5fd0>;
+						};
+
+						level_3 {
+							threshold = <0x190>;
+							big_min = <0x166a48>;
+							mif = <0x1b5fd0>;
+						};
+					};
+				};
+			};
 
 	dev_ril_bridge_pdata {
 		compatible = "samsung,dev_ril_bridge_pdata";
@@ -13749,7 +14248,7 @@
 		fuelgauge,capacity = <0xea9>;
 		fuelgauge,discharge_temp_threshold = <0x258>;
 		fuelgauge,discharge_volt_threshold = <0x1068>;
-		fuelgauge,ttf_capacity = <0xfa0>;
+		fuelgauge,ttf_capacity = <0xe10>;
 		fuelgauge,cv_data = <0x9b8 0x33d 0x711 0x969 0x340 0x704 0x917 0x345 0x6e9 0x8e0 0x348 0x6cf 0x886 0x34e 0x6b9 0x838 0x352 0x69a 0x7f6 0x356 0x686 0x79e 0x35b 0x668 0x770 0x35d 0x656 0x72e 0x361 0x63a 0x705 0x363 0x628 0x6d5 0x366 0x618 0x6a7 0x369 0x5fb 0x693 0x369 0x5f5 0x683 0x36b 0x5eb 0x67c 0x36b 0x5e8 0x675 0x36c 0x5e5 0x64f 0x36e 0x5de 0x62c 0x370 0x5cb 0x611 0x371 0x5b7 0x608 0x372 0x5b2 0x5f0 0x373 0x5ab 0x5c5 0x376 0x590 0x597 0x378 0x581 0x574 0x37b 0x567 0x543 0x37e 0x551 0x513 0x380 0x534 0x4f3 0x382 0x523 0x4cf 0x386 0x508 0x4b2 0x388 0x4ef 0x47c 0x38a 0x4db 0x455 0x38d 0x4bd 0x42b 0x38f 0x4a1 0x407 0x392 0x484 0x3f5 0x393 0x474 0x3cf 0x395 0x457 0x3c1 0x397 0x43c 0x399 0x399 0x428 0x37c 0x39b 0x40e 0x377 0x39b 0x3fb 0x35f 0x39d 0x3ec 0x341 0x39f 0x3d0 0x328 0x3a1 0x3b2 0x313 0x3a2 0x396 0x30c 0x3a3 0x388 0x2fc 0x3a4 0x37f 0x2e8 0x3a6 0x360 0x2da 0x3a7 0x34e 0x2cb 0x3a8 0x33c 0x2b5 0x3a9 0x320 0x2a9 0x3aa 0x30f 0x29a 0x3ac 0x2f0 0x28b 0x3ad 0x2df 0x280 0x3ae 0x2c8 0x274 0x3b1 0x2b9 0x26e 0x3b2 0x2a7 0x26a 0x3b3 0x298 0x258 0x3b6 0x286 0x254 0x3b7 0x273 0x24d 0x3b9 0x266 0x248 0x3b9 0x259 0x240 0x3bc 0x23c 0x241 0x3bd 0x229 0x232 0x3be 0x217 0x1ff 0x3c8 0x1fa 0x1f9 0x3c9 0x1e7 0x1ed 0x3cb 0x1d0 0x1ec 0x3cc 0x1b3 0x1e4 0x3cd 0x1a1 0x1e0 0x3cf 0x18e 0x1da 0x3d0 0x17c 0x1d6 0x3d1 0x16c 0x1ce 0x3d1 0x163 0x1c8 0x3d2 0x150 0x1c4 0x3d3 0x149 0x1be 0x3d5 0x12f 0x1b5 0x3d6 0x11a 0x1ad 0x3d8 0xff 0x1a7 0x3d9 0xf2 0x1a6 0x3da 0xe5 0x19e 0x3db 0xd3 0x19b 0x3dc 0xc7 0x195 0x3dd 0xbf 0x18d 0x3de 0xab 0x187 0x3df 0x8c 0x183 0x3e0 0x7e 0x180 0x3e1 0x6b 0x174 0x3e3 0x54 0x16c 0x3e5 0x36 0x164 0x3e6 0x1a 0x164 0x3e6 0xd 0x0 0x3e8 0x0>;
 	};
 

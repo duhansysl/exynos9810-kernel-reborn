@@ -42,7 +42,7 @@ $(info kperfmon_DUMMY="perflog.h file is missing.")
 endif
 
 ifeq ($(FLAG), 1)
-$(info kperfmon_DUMMY="$(shell cp -f $(srctree)/drivers/kperfmon/ologk.h $(srctree)/include/linux/)")
+# $(info kperfmon_DUMMY="$(shell cp -f $(srctree)/drivers/kperfmon/ologk.h $(srctree)/include/linux/)")
 	obj-y		+= kperfmon.o
 else
 	obj-y		+= ologk.o

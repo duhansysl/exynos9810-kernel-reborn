@@ -10,6 +10,16 @@
  * published by the Free Software Foundation.
  */
 
+#ifdef CONFIG_WAKE_GESTURES
+#include <linux/kernel.h>
+#include <linux/wake_gestures.h>
+static bool is_suspended;
+bool scr_suspended(void)
+{
+	return is_suspended;
+}
+#endif
+
 struct sec_ts_data *tsp_info;
 
 #include "sec_ts.h"
@@ -1291,6 +1301,11 @@ static void sec_ts_read_event(struct sec_ts_data *ts)
 						input_report_key(ts->input_dev, BTN_TOUCH, 1);
 						input_report_key(ts->input_dev, BTN_TOOL_FINGER, 1);
 
+#ifdef CONFIG_WAKE_GESTURES
+						if (is_suspended)
+							ts->coord[t_id].x += 5000;
+#endif
+
 						input_report_abs(ts->input_dev, ABS_MT_POSITION_X, ts->coord[t_id].x);
 						input_report_abs(ts->input_dev, ABS_MT_POSITION_Y, ts->coord[t_id].y);
 						input_report_abs(ts->input_dev, ABS_MT_TOUCH_MAJOR, ts->coord[t_id].major);
@@ -1372,6 +1387,7 @@ static void sec_ts_read_event(struct sec_ts_data *ts)
 				input_report_key(ts->input_dev, KEY_BLACK_UI_GESTURE, 1);
 				break;
 			case SEC_TS_GESTURE_CODE_FORCE:
+#ifndef CONFIG_CUSTOM_FORCETOUCH
 				if (ts->power_status == SEC_TS_STATE_POWER_ON) {
 					if (p_gesture_status->gesture_id == SEC_TS_EVENT_PRESSURE_TOUCHED) {
 						ts->all_force_count++;
@@ -1406,6 +1422,46 @@ static void sec_ts_read_event(struct sec_ts_data *ts)
 						ts->all_force_count++;
 					}
 				}
+#else
+				if (ts->power_status == SEC_TS_STATE_POWER_ON) {
+					if (p_gesture_status->gesture_id == SEC_TS_EVENT_PRESSURE_RELEASED) {
+						input_report_key(ts->input_dev, KEY_HOMEPAGE, 0);
+						input_report_key(ts->input_dev, KEY_BLACK_UI_GESTURE, 1);
+						ts->scrub_id = SPONGE_EVENT_TYPE_AOD_HOMEKEY_RELEASE_NO_HAPTIC;
+						input_sync(ts->input_dev);
+
+						haptic_homekey_release();
+					} else {
+						input_report_key(ts->input_dev, KEY_HOMEPAGE, 1);
+						ts->scrub_id = SPONGE_EVENT_TYPE_AOD_HOMEKEY_PRESS;
+						input_sync(ts->input_dev);
+
+						haptic_homekey_press();
+						ts->all_force_count++;
+					}
+
+					if (ts->pressure_setting_mode)
+						input_info(true, &ts->client->dev, "%s: skip force events in pressure setting mode\n", __func__);
+					else
+						input_report_key(ts->input_dev, KEY_BLACK_UI_GESTURE, 1);
+				} else {
+					if (p_gesture_status->gesture_id == SEC_TS_EVENT_PRESSURE_RELEASED) {
+						input_report_key(ts->input_dev, KEY_HOMEPAGE, 0);
+						input_report_key(ts->input_dev, KEY_BLACK_UI_GESTURE, 1);
+						ts->scrub_id = SPONGE_EVENT_TYPE_AOD_HOMEKEY_RELEASE_NO_HAPTIC;
+						input_sync(ts->input_dev);
+
+						haptic_homekey_release();
+					} else {
+						input_report_key(ts->input_dev, KEY_HOMEPAGE, 1);
+						ts->scrub_id = SPONGE_EVENT_TYPE_AOD_HOMEKEY_PRESS;
+						input_sync(ts->input_dev);
+
+						haptic_homekey_press();
+						ts->all_force_count++;
+					}
+				}
+#endif
 
 				ts->scrub_x = (p_gesture_status->gesture_data_1 << 4)
 							| (p_gesture_status->gesture_data_3 >> 4);
@@ -1454,11 +1510,16 @@ static irqreturn_t sec_ts_irq_thread(int irq, void *ptr)
 	}
 #endif
 
+	/* prevent CPU from entering deep sleep */
+	pm_qos_update_request(&ts->pm_qos_req, 100);
+
 	mutex_lock(&ts->eventlock);
 
 	sec_ts_read_event(ts);
 
 	mutex_unlock(&ts->eventlock);
+
+	pm_qos_update_request(&ts->pm_qos_req, PM_QOS_DEFAULT_VALUE);
 
 	return IRQ_HANDLED;
 }
@@ -2261,6 +2322,9 @@ static int sec_ts_probe(struct i2c_client *client, const struct i2c_device_id *i
 				"%s: TOUCH DEVICE ID : %02X, %02X, %02X, %02X, %02X\n", __func__,
 				deviceID[0], deviceID[1], deviceID[2], deviceID[3], deviceID[4]);
 
+	pm_qos_add_request(&ts->pm_qos_req, PM_QOS_CPU_DMA_LATENCY,
+		PM_QOS_DEFAULT_VALUE);
+
 	ret = sec_ts_i2c_read(ts, SEC_TS_READ_FIRMWARE_INTEGRITY, &result, 1);
 	if (ret < 0) {
 		input_err(true, &ts->client->dev, "%s: failed to integrity check (%d)\n", __func__, ret);
@@ -2425,6 +2489,7 @@ static int sec_ts_probe(struct i2c_client *client, const struct i2c_device_id *i
 	free_irq(client->irq, ts);
 #endif
 err_irq:
+	pm_qos_remove_request(&ts->pm_qos_req);
 	if (ts->plat_data->support_dex) {
 		input_unregister_device(ts->input_dev_pad);
 		ts->input_dev_pad = NULL;
@@ -2835,6 +2900,10 @@ static int sec_ts_input_open(struct input_dev *dev)
 	char addr[3] = { 0 };
 	int ret;
 
+#ifdef CONFIG_WAKE_GESTURES
+	is_suspended = false;
+#endif
+
 	if (!ts->info_work_done) {
 		input_err(true, &ts->client->dev, "%s not finished info work\n", __func__);
 		return 0;
@@ -2868,6 +2937,11 @@ static int sec_ts_input_open(struct input_dev *dev)
 #ifdef USE_RESET_EXIT_LPM
 		schedule_delayed_work(&ts->reset_work, msecs_to_jiffies(TOUCH_RESET_DWORK_TIME));
 #else
+#ifdef CONFIG_WAKE_GESTURES
+		if (s2w_switch || dt2w_switch)
+			disable_irq_wake(ts->client->irq);
+		else
+#endif
 		sec_ts_set_lowpowermode(ts, TO_TOUCH_MODE);
 #endif
 	} else {
@@ -2900,6 +2974,20 @@ static int sec_ts_input_open(struct input_dev *dev)
 
 	mutex_unlock(&ts->modechange);
 
+#ifdef CONFIG_WAKE_GESTURES
+	if (dt2w_switch_changed) {
+		dt2w_switch = dt2w_switch_temp;
+		dt2w_switch_changed = false;
+	}
+	if (dt2w_custom_tap_changed) {
+		dt2w_custom_tap = dt2w_custom_tap_temp;
+		dt2w_custom_tap_changed = false;
+	}
+	if (s2w_switch_changed) {
+		s2w_switch = s2w_switch_temp;
+		s2w_switch_changed = false;
+	}
+#endif
 	cancel_delayed_work(&ts->work_print_info);
 	ts->print_info_cnt_open = 0;
 	ts->print_info_cnt_release = 0;
@@ -2911,6 +2999,10 @@ static void sec_ts_input_close(struct input_dev *dev)
 {
 	struct sec_ts_data *ts = input_get_drvdata(dev);
 	struct irq_desc *desc = irq_to_desc(ts->client->irq);
+
+#ifdef CONFIG_WAKE_GESTURES
+	is_suspended = true;
+#endif
 
 	if (!ts->info_work_done) {
 		input_err(true, &ts->client->dev, "%s not finished info work\n", __func__);
@@ -2965,6 +3057,11 @@ static void sec_ts_input_close(struct input_dev *dev)
 
 	ts->pressure_setting_mode = 0;
 
+#ifdef CONFIG_WAKE_GESTURES
+		if (s2w_switch || dt2w_switch)
+			enable_irq_wake(ts->client->irq);
+		else
+#endif
 	if (ts->prox_power_off) {
 		sec_ts_stop_device(ts);
 	} else {
@@ -2993,6 +3090,8 @@ static int sec_ts_remove(struct i2c_client *client)
 	disable_irq_nosync(ts->client->irq);
 	free_irq(ts->client->irq, ts);
 	input_info(true, &ts->client->dev, "%s: irq disabled\n", __func__);
+
+	pm_qos_remove_request(&ts->pm_qos_req);
 
 #ifdef USE_POWER_RESET_WORK
 	cancel_delayed_work_sync(&ts->reset_work);

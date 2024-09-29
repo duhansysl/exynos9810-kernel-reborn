@@ -42,6 +42,11 @@
 #define msg_maxim(format, args...)
 #endif /* DEBUG_MAX98512 */
 
+#ifdef CONFIG_MORO_SOUND
+#include "moro_sound.h"
+int moro_speaker_gain_value, moro_speaker_digital_value, moro_earpiece_gain_value, moro_earpiece_digital_value, moro_both_gain_value, moro_both_digital_value;
+#endif
+
 struct max98512_priv *g_max98512;
 
 static int max98512_remap_reg(int reg, int revID)
@@ -433,22 +438,58 @@ int max98512_wrapper_update(struct max98512_priv *max98512,
 	int ret = -999;
 	int count = 0;
 	int reg_r = reg;
+#ifdef CONFIG_MORO_SOUND
+	int moro_mode = 0;
+#endif
 
 	reg = REMAP(reg, max98512->revID);
 	reg_r = REMAP(reg_r, max98512->revID_r);
 
+#ifdef CONFIG_MORO_SOUND
+	if (val) {
+		switch (mask) {
+			case MAX98512_AMP_VOL_MASK:
+				moro_mode = 2;
+				break;
+			case MAX98512_SPK_PCM_GAIN_MASK:
+				moro_mode = 1;
+				break;
+			default:
+				break;
+		}
+	}
+#endif
+
 	while (count++ < MAX_TRY_COUNT && ret != 0) {
 		switch (speaker) {
 		case MAX98512L:
+#ifdef CONFIG_MORO_SOUND
+			if (moro_earpiece_digital_value && moro_mode == 2)
+				val = moro_earpiece_digital_value;
+			else if (moro_earpiece_gain_value && moro_mode == 1)
+				val = moro_earpiece_gain_value;
+#endif
 			ret = regmap_update_bits(max98512->regmap_l,
 						 reg, mask, val);
 			break;
 		case MAX98512R:
+#ifdef CONFIG_MORO_SOUND
+			if (moro_speaker_digital_value && moro_mode == 2)
+				val = moro_speaker_digital_value;
+			else if (moro_speaker_gain_value && moro_mode == 1)
+				val = moro_speaker_gain_value;
+#endif
 			if (max98512->pdata->sub_reg)
 				ret = regmap_update_bits(max98512->regmap_r,
 							 reg_r, mask, val);
 			break;
 		case MAX98512B:
+#ifdef CONFIG_MORO_SOUND
+			if (moro_both_digital_value && moro_mode == 2)
+				val = moro_both_digital_value;
+			else if (moro_both_gain_value && moro_mode == 1)
+				val = moro_both_gain_value;
+#endif
 			ret = regmap_update_bits(max98512->regmap_l,
 						 reg, mask, val);
 			if (max98512->pdata->sub_reg)
@@ -1232,6 +1273,157 @@ static int max98512_adc_config(struct max98512_priv *max98512)
 	return 0;
 }
 
+#ifdef CONFIG_MORO_SOUND
+
+int get_speaker_analog_gain(void)
+{
+	return moro_speaker_gain_value;
+}
+
+int get_speaker_digital_gain(void)
+{
+	return moro_speaker_digital_value;
+}
+
+void set_speaker_gain(struct max98512_priv *max98512)
+{
+	if (moro_speaker_digital_value) {
+// MAX98512_R0035_AMP_VOL_CTRL
+		max98512_wrapper_update(max98512, MAX98512R,
+						MAX98512_R0035_AMP_VOL_CTRL,
+						MAX98512_AMP_VOL_MASK,
+						moro_speaker_digital_value);
+	}
+
+	if (moro_speaker_gain_value) {
+// MAX98512_R003A_SPK_GAIN
+		max98512_wrapper_update(max98512, MAX98512R,
+						MAX98512_R003A_SPK_GAIN,
+						MAX98512_SPK_PCM_GAIN_MASK,
+						moro_speaker_gain_value);
+
+		max98512->spk_gain_right = moro_speaker_gain_value;
+		max98512->spk_gain = moro_speaker_gain_value;
+	}
+}
+
+int set_speaker_analog_gain_value(int gain)
+{
+	moro_speaker_gain_value = gain;
+
+	set_speaker_gain(g_max98512);
+
+	return moro_speaker_gain_value;
+}
+
+int set_speaker_digital_gain_value(int gain)
+{
+	moro_speaker_digital_value = gain;
+
+	set_speaker_gain(g_max98512);
+
+	return moro_speaker_digital_value;
+}
+
+int get_earpiece_analog_gain(void)
+{
+	return moro_earpiece_gain_value;
+}
+
+int get_earpiece_digital_gain(void)
+{
+	return moro_earpiece_digital_value;
+}
+
+void set_earpiece_gain(struct max98512_priv *max98512)
+{
+	if (moro_earpiece_digital_value) {
+// MAX98512_R0035_AMP_VOL_CTRL
+		max98512_wrapper_update(max98512, MAX98512L,
+						MAX98512_R0035_AMP_VOL_CTRL,
+						MAX98512_AMP_VOL_MASK,
+						moro_earpiece_digital_value);
+	}
+
+	if (moro_earpiece_gain_value) {
+// MAX98512_R003A_SPK_GAIN
+		max98512_wrapper_update(max98512, MAX98512L,
+						MAX98512_R003A_SPK_GAIN,
+						MAX98512_SPK_PCM_GAIN_MASK,
+						moro_earpiece_gain_value);
+
+		max98512->spk_gain_left = moro_earpiece_gain_value;
+	}
+}
+
+int set_earpiece_analog_gain_value(int gain)
+{
+	moro_earpiece_gain_value = gain;
+
+	set_earpiece_gain(g_max98512);
+
+	return moro_earpiece_gain_value;
+}
+
+int set_earpiece_digital_gain_value(int gain)
+{
+	moro_earpiece_digital_value = gain;
+
+	set_earpiece_gain(g_max98512);
+
+	return moro_earpiece_digital_value;
+}
+
+int get_both_analog_gain(void)
+{
+	return moro_both_gain_value;
+}
+
+int get_both_digital_gain(void)
+{
+	return moro_both_digital_value;
+}
+
+void set_both_gain(struct max98512_priv *max98512)
+{
+	if (moro_both_digital_value) {
+// MAX98512_R0035_AMP_VOL_CTRL
+		max98512_wrapper_update(max98512, MAX98512B,
+						MAX98512_R0035_AMP_VOL_CTRL,
+						MAX98512_AMP_VOL_MASK,
+						moro_both_digital_value);
+	}
+
+	if (moro_both_gain_value) {
+// MAX98512_R003A_SPK_GAIN
+		max98512_wrapper_update(max98512, MAX98512B,
+						MAX98512_R003A_SPK_GAIN,
+						MAX98512_SPK_PCM_GAIN_MASK,
+						moro_both_gain_value);
+
+		
+	}
+}
+
+int set_both_analog_gain_value(int gain)
+{
+	moro_both_gain_value = gain;
+
+	set_both_gain(g_max98512);
+
+	return moro_both_gain_value;
+}
+
+int set_both_digital_gain_value(int gain)
+{
+	moro_both_digital_value = gain;
+
+	set_both_gain(g_max98512);
+
+	return moro_both_digital_value;
+}
+#endif
+
 static int __max98512_spk_enable(struct max98512_priv *max98512)
 {
 	struct max98512_pdata *pdata = max98512->pdata;
@@ -1332,8 +1524,8 @@ static int __max98512_spk_enable(struct max98512_priv *max98512)
 
 	battery_temp = maxdsm_cal_get_temp_from_power_supply();
 
-	if (battery_temp > 50) {
-		msg_maxim("battery_temp[%d] over 50", battery_temp);
+	if (battery_temp > 55) {
+		msg_maxim("battery_temp[%d] over 55", battery_temp);
 		max98512_wrapper_write(max98512, MAX98512B,
 				       MAX98512_R0059_BROWNOUT_LVL2_THRESH,
 				       0x30);
@@ -1341,7 +1533,7 @@ static int __max98512_spk_enable(struct max98512_priv *max98512)
 				       MAX98512_R005A_BROWNOUT_LVL3_THRESH,
 				       0x10);
 	} else {
-		msg_maxim("battery_temp[%d] under 50", battery_temp);
+		msg_maxim("battery_temp[%d] under 55", battery_temp);
 		max98512_wrapper_write(max98512, MAX98512B,
 				       MAX98512_R0059_BROWNOUT_LVL2_THRESH,
 				       0x40);
@@ -2938,3 +3130,4 @@ module_i2c_driver(max98512_i2c_driver)
 MODULE_DESCRIPTION("ALSA SoC MAX98512 driver");
 MODULE_AUTHOR("Ryan Lee <ryans.lee@maximintegrated.com>");
 MODULE_LICENSE("GPL");
+
