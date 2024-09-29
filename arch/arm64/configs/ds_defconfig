@@ -15,3 +15,7 @@ CONFIG_PAGE_BOOST_RECORDING=y
 # SEC Memory Management Options
 #
 CONFIG_SEC_MM=y
+#
+# MoroSound
+#
+CONFIG_MORO_SOUND=y
