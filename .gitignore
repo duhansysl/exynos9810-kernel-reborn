@@ -150,4 +150,4 @@ DS/Out/kernelzip/*
 DS/Product/*.zip
 
 # KSU
-drivers/kernelsu
+drivers/kernelsu/*
