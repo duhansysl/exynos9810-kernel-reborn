@@ -2,7 +2,7 @@
 #define _LINUX_WACOM_H_
 
 #include <linux/wakelock.h>
-#include <linux/sec_sysfs.h>
+#include <linux/sec_class.h>
 
 #include "wacom_i2c.h"
 
