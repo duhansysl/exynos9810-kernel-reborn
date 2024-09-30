@@ -276,7 +276,6 @@ int ion_secure_protect(struct ion_buffer *buffer)
 {
 	struct ion_heap *heap = buffer->heap;
 	struct exynos_ion_platform_heap *pdata;
-	struct ion_buffer_info *info = (struct ion_buffer_info *)buffer->priv_virt;
 	int id;
 
 	id = __find_platform_heap_id(heap->id);
