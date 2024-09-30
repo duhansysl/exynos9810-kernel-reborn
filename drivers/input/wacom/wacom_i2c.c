@@ -27,7 +27,7 @@
 #include <linux/firmware.h>
 #include <linux/regulator/consumer.h>
 #include <linux/of_gpio.h>
-#include <linux/sec_sysfs.h>
+#include <linux/sec_class.h>
 #include <linux/usb/manager/usb_typec_manager_notifier.h>
 
 #include "wacom.h"
