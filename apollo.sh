@@ -184,7 +184,7 @@ else
 fi
 
 # Clang Features (18 and higher)
-if [ $CR_COMPILER -ge 3 ]; then
+if [ $CR_COMPILER -ge 4 ]; then
 export CONFIG_THINLTO=y
 export CONFIG_UNIFIEDLTO=y
 export CONFIG_LLVM_MLGO_REGISTER=y
