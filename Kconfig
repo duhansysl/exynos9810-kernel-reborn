@@ -7,6 +7,10 @@ mainmenu "Linux/$ARCH $KERNELVERSION Kernel Configuration"
 config SRCARCH
 	string
 	option env="SRCARCH"
+	
+config ANDROID_VERSION
+	string
+	option env="ANDROID_VERSION"
 
 config ANDROID_MAJOR_VERSION
 	string
