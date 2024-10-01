@@ -45,13 +45,15 @@ CR_NAME=DS-ACK
 # Thread count
 CR_JOBS=$(nproc --all)
 # Target Android version
-CR_ANDROID=q
-CR_PLATFORM=13.0.0
+CR_ANDROID_MAJOR=t
+CR_PLATFORM_VER=13
+CR_ANDROID_VER=13.0.0
 # Current Date
 CR_DATE=$(date +%d.%m.%Y)
 # General init
-export ANDROID_MAJOR_VERSION=$CR_ANDROID
-export PLATFORM_VERSION=$CR_PLATFORM
+export ANDROID_MAJOR_VERSION=$CR_ANDROID_MAJOR
+export PLATFORM_VERSION=$CR_PLATFORM_VER
+export ANDROID_VERSION=$CR_ANDROID_VER
 export $CR_ARCH
 ##########################################
 # Device specific Variables [SM-G960X]
