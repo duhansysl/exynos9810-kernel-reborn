@@ -39,14 +39,16 @@ CR_NAME=DS-ACK
 # Thread count
 CR_JOBS=$(nproc --all)
 # Target Android version
-CR_ANDROID=q
-CR_PLATFORM=13.0.0
+CR_ANDROID=t
+CR_PLATFORM=13
+CR_ANDROID_VER=13.0.0
 # Target ARCH
 CR_ARCH=arm64
 # Current Date
 CR_DATE=$(date +%Y%m%d)
 # General init
 export ANDROID_MAJOR_VERSION=$CR_ANDROID
+export ANDROID_VERSION=$CR_ANDROID_VER
 export PLATFORM_VERSION=$CR_PLATFORM
 export $CR_ARCH
 ##########################################
