@@ -1,18 +1,19 @@
 #ifndef _LINUX_WACOM_I2C_H_
 #define _LINUX_WACOM_I2C_H_
 
+/*sec_class sysfs*/
+extern struct class *sec_class;
+
 #ifdef CONFIG_BATTERY_SAMSUNG
 extern unsigned int lpcharge;
 #endif
 
-#define CMD_RESULT_WORD_LEN	20
 struct wacom_g5_platform_data {
 	int irq_gpio;
 	int pdct_gpio;
 	int fwe_gpio;
 	int boot_addr;
 	int irq_type;
-	int pdct_type;
 	int x_invert;
 	int y_invert;
 	int xy_switch;
@@ -29,15 +30,13 @@ struct wacom_g5_platform_data {
 	const char *fw_fac_path;
 #endif
 	u32 ic_type;
-	u32 module_ver;
+	const char *project_name;
+	const char *model_name;
+	bool use_virtual_softkey;
 	bool use_garage;
-	u32 table_swap;
-	bool use_vddio;
-	u32 bringup;
-
-	u32	area_indicator;
-	u32	area_navigation;
-	u32	area_edge;
+	bool support_dex;
+	u32 dex_rate;
+	bool table_swap;
 };
 
 #endif /* _LINUX_WACOM_I2C_H */

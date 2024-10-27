@@ -14,6 +14,8 @@
 #define pen_QUERY				'*'
 #define ACK					0
 
+#define MPU_W9018				0x42
+
 #define FLASH_BLOCK_SIZE			256
 #define DATA_SIZE				(65536 * 2)
 #define BLOCK_NUM				31
@@ -64,6 +66,7 @@
 #define PROCESS_CHKSUM1_ERR			0x81
 #define PROCESS_CHKSUM2_ERR			0x82
 #define PROCESS_TIMEOUT_ERR			0x87
+#define RETRY_COUNT				5
 
 /*
  * exit codes

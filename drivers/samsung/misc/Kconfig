@@ -6,7 +6,7 @@ menuconfig SEC_MISC
 comment "Samsung TN Logging Options"
 config SEC_DEBUG_TSP_LOG
 	default n
-	bool "Enable tsp log support" if EMBEDDED
+	tristate "Enable tsp log support" if EMBEDDED
 	depends on SEC_EXT
 	help
 	  This option enables additional log buffer for tsp log.
@@ -84,7 +84,7 @@ config SEC_NAD_C
 	  Samsung TN NAD Feature, Enable NAD C
 
 config SEC_NAD_BPS_CLASSIFIER
-	bool " Samsung TN NAD BPS Classifier Feature"
+	bool "Samsung TN NAD BPS Classifier Feature"
 	depends on SEC_NAD
 	default n
 	help
