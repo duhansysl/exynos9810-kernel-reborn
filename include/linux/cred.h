@@ -167,12 +167,6 @@ struct cred {
 		int non_rcu;			/* Can we skip RCU deletion? */
 		struct rcu_head	rcu;		/* RCU deletion hook */
 	};
-#ifdef CONFIG_RKP_KDP
-	atomic_t *use_cnt;
-	struct task_struct *bp_task;
-	void *bp_pgd;
-	unsigned long long type;
-#endif /*CONFIG_RKP_KDP*/
 };
 #ifdef CONFIG_RKP_KDP
 typedef struct cred_param{
@@ -300,11 +294,6 @@ static inline const struct cred *get_cred(const struct cred *cred)
 {
 	struct cred *nonconst_cred = (struct cred *) cred;
 	validate_creds(cred);
-#ifdef CONFIG_RKP_KDP
-	if (rkp_ro_page((unsigned long)nonconst_cred))
-		get_rocred_rcu(nonconst_cred)->non_rcu = 0;
-	else
-#endif
 	nonconst_cred->non_rcu = 0;
 	return get_new_cred(nonconst_cred);
 }
