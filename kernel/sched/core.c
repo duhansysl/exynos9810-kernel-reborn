@@ -3259,11 +3259,7 @@ void scheduler_tick(void)
 	walt_update_task_ravg(rq->curr, rq, TASK_UPDATE,
 			walt_ktime_clock(), 0);
 	calc_global_load_tick(rq);
-<<<<<<< HEAD
-	sched_freq_tick(cpu);
-=======
 	psi_task_tick(rq);
->>>>>>> 050bba4da320 (push 4.9.118 -> 4.9.191 upstream changes)
 	raw_spin_unlock(&rq->lock);
 
 	perf_event_task_tick();

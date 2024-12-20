@@ -44,6 +44,7 @@
 #include <linux/rcupdate.h>
 #include <linux/profile.h>
 #include <linux/notifier.h>
+#include <linux/ratelimit.h>
 #include <linux/circ_buf.h>
 #include <linux/proc_fs.h>
 #include <linux/slab.h>
@@ -81,7 +82,74 @@ static unsigned long lowmem_deathpending_timeout;
 		if (lowmem_debug_level >= (level))	\
 			pr_info(x);			\
 	} while (0)
-
+		
+static int test_task_flag(struct task_struct *p, int flag)
+{
+	struct task_struct *t = p;
+	do {
+		if (test_tsk_thread_flag(t, flag))
+			return 1;
+	} while_each_thread(p, t);
+	return 0;
+}
+static void show_memory(void)
+{
+	unsigned long nr_rbin_free, nr_rbin_pool, nr_rbin_alloc, nr_rbin_file;
+	nr_rbin_free = global_page_state(NR_FREE_RBIN_PAGES);
+	nr_rbin_pool = atomic_read(&rbin_pool_pages);
+	nr_rbin_alloc = atomic_read(&rbin_allocated_pages);
+	nr_rbin_file = totalrbin_pages - nr_rbin_free - nr_rbin_pool
+					- nr_rbin_alloc;
+#define K(x) ((x) << (PAGE_SHIFT - 10))
+	printk("Mem-Info:"
+		" totalram_pages:%lukB"
+		" free:%lukB"
+		" active_anon:%lukB"
+		" inactive_anon:%lukB"
+		" active_file:%lukB"
+		" inactive_file:%lukB"
+		" unevictable:%lukB"
+		" isolated(anon):%lukB"
+		" isolated(file):%lukB"
+		" dirty:%lukB"
+		" writeback:%lukB"
+		" mapped:%lukB"
+		" shmem:%lukB"
+		" slab_reclaimable:%lukB"
+		" slab_unreclaimable:%lukB"
+		" kernel_stack:%lukB"
+		" pagetables:%lukB"
+		" free_cma:%lukB"
+		" rbin_free:%lukB"
+		" rbin_pool:%lukB"
+		" rbin_alloc:%lukB"
+		" rbin_file:%lukB"
+		"\n",
+		K(totalram_pages),
+		K(global_page_state(NR_FREE_PAGES)),
+		K(global_node_page_state(NR_ACTIVE_ANON)),
+		K(global_node_page_state(NR_INACTIVE_ANON)),
+		K(global_node_page_state(NR_ACTIVE_FILE)),
+		K(global_node_page_state(NR_INACTIVE_FILE)),
+		K(global_node_page_state(NR_UNEVICTABLE)),
+		K(global_node_page_state(NR_ISOLATED_ANON)),
+		K(global_node_page_state(NR_ISOLATED_FILE)),
+		K(global_node_page_state(NR_FILE_DIRTY)),
+		K(global_node_page_state(NR_WRITEBACK)),
+		K(global_node_page_state(NR_FILE_MAPPED)),
+		K(global_node_page_state(NR_SHMEM)),
+		K(global_page_state(NR_SLAB_RECLAIMABLE)),
+		K(global_page_state(NR_SLAB_UNRECLAIMABLE)),
+		global_page_state(NR_KERNEL_STACK_KB),
+		K(global_page_state(NR_PAGETABLE)),
+		K(global_page_state(NR_FREE_CMA_PAGES)),
+		K(nr_rbin_free),
+		K(nr_rbin_pool),
+		K(nr_rbin_alloc),
+		K(nr_rbin_file)
+		);
+#undef K
+}
 
 static DECLARE_WAIT_QUEUE_HEAD(event_wait);
 static DEFINE_SPINLOCK(lmk_event_lock);
@@ -408,6 +476,7 @@ static unsigned long lowmem_scan(struct shrinker *s, struct shrink_control *sc)
 		lowmem_deathpending_timeout = jiffies + HZ;
 		rem += selected_tasksize;
 		get_task_struct(selected);
+		lowmem_lmkcount++;		
 	}
 
 	lowmem_print(4, "lowmem_scan %lu, %x, return %lu\n",
@@ -418,6 +487,9 @@ static unsigned long lowmem_scan(struct shrinker *s, struct shrink_control *sc)
 		handle_lmk_event(selected, selected_tasksize, min_score_adj);
 		put_task_struct(selected);
 	}
+	if (!rem)
+		rem = SHRINK_STOP;
+	
 	return rem;
 }
 
